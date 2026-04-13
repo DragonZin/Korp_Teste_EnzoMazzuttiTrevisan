@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using ProductsService.Contracts;
-using ProductsService.Models;
 using ProductsService.Services;
 
 namespace ProductsService.Controllers;
@@ -31,14 +30,14 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<Product>> CreateProduct(CreateProductRequest request)
+    public async Task<ActionResult<ProductResponse>> CreateProduct(CreateProductRequest request)
     {
         var product = await _productService.CreateProductAsync(request);
         return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<Product>> UpdateProduct(Guid id, UpdateProductRequest request)
+    public async Task<ActionResult<ProductResponse>> UpdateProduct(Guid id, UpdateProductRequest request)
     {
         var product = await _productService.UpdateProductAsync(id, request);
         return Ok(product);

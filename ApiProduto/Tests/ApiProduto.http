@@ -1,5 +1,5 @@
 @ApiProduto_HostAddress = http://localhost:5242
-@productId = 23e5b6db-cebd-4033-96c8-3babb4fa9a05
+@productId = c5e17b4a-0207-432f-8b69-80cb4a867e7f
 
 ### Listar produtos ativos
 GET {{ApiProduto_HostAddress}}/api/products
@@ -12,7 +12,7 @@ POST {{ApiProduto_HostAddress}}/api/products
 Content-Type: application/json
 
 {
-  "code": "PRO-001",
+  "code": "PRO-002",
   "name": "Produto Teste",
   "stock": 10,
   "price": 199.99

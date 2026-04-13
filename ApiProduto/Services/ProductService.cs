@@ -19,6 +19,7 @@ public class ProductService : IProductService
     {
         return await _context.Products
             .AsNoTracking()
+            .Where(p => !p.IsDeleted)
             .OrderBy(p => p.Name)
             .Select(p => new ProductResponse(
                 p.Id,
@@ -34,7 +35,7 @@ public class ProductService : IProductService
     {
         var product = await _context.Products
             .AsNoTracking()
-            .Where(p => p.Id == id)
+            .Where(p => p.Id == id && !p.IsDeleted)
             .Select(p => new ProductResponse(
                 p.Id,
                 p.Code,
@@ -47,15 +48,26 @@ public class ProductService : IProductService
         return product ?? throw new NotFoundException("Produto não encontrado.");
     }
 
-    public async Task<Product> CreateProductAsync(CreateProductRequest request)
+    public async Task<ProductResponse> CreateProductAsync(CreateProductRequest request)
     {
         ValidateRequest(request.Code, request.Name);
+
+        var code = request.Code.Trim();
+        var name = request.Name.Trim();
+
+        var codeAlreadyExists = await _context.Products
+            .AnyAsync(p => p.Code == code && !p.IsDeleted);
+
+        if (codeAlreadyExists)
+        {
+            throw new ValidationException("Já existe um produto com esse código.");
+        }
 
         var product = new Product
         {
             Id = Guid.NewGuid(),
-            Code = request.Code.Trim(),
-            Name = request.Name.Trim(),
+            Code = code,
+            Name = name,
             Stock = request.Stock,
             Price = request.Price,
             IsDeleted = false
@@ -64,30 +76,55 @@ public class ProductService : IProductService
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
-        return product;
+        return new ProductResponse(
+            product.Id,
+            product.Code,
+            product.Name,
+            product.Stock,
+            product.Price
+        );
     }
 
-    public async Task<Product> UpdateProductAsync(Guid id, UpdateProductRequest request)
+    public async Task<ProductResponse> UpdateProductAsync(Guid id, UpdateProductRequest request)
     {
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id)
-                      ?? throw new NotFoundException("Produto não encontrado.");
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            ?? throw new NotFoundException("Produto não encontrado.");
 
         ValidateRequest(request.Code, request.Name);
 
-        product.Code = request.Code.Trim();
-        product.Name = request.Name.Trim();
+        var code = request.Code.Trim();
+        var name = request.Name.Trim();
+
+        var codeAlreadyExists = await _context.Products
+            .AnyAsync(p => p.Id != id && p.Code == code && !p.IsDeleted);
+
+        if (codeAlreadyExists)
+        {
+            throw new ValidationException("Já existe um produto com esse código.");
+        }
+
+        product.Code = code;
+        product.Name = name;
         product.Stock = request.Stock;
         product.Price = request.Price;
 
         await _context.SaveChangesAsync();
 
-        return product;
+        return new ProductResponse(
+            product.Id,
+            product.Code,
+            product.Name,
+            product.Stock,
+            product.Price
+        );
     }
 
     public async Task DeleteProductAsync(Guid id)
     {
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id)
-                      ?? throw new NotFoundException("Produto não encontrado.");
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            ?? throw new NotFoundException("Produto não encontrado.");
 
         product.IsDeleted = true;
         await _context.SaveChangesAsync();
@@ -95,9 +132,14 @@ public class ProductService : IProductService
 
     private static void ValidateRequest(string code, string name)
     {
-        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(code))
         {
-            throw new ValidationException("Code e Name são obrigatórios.");
+            throw new ValidationException("Code é obrigatório.");
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ValidationException("Name é obrigatório.");
         }
     }
 }
