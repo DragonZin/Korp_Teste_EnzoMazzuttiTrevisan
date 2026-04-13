@@ -12,18 +12,18 @@ services:
     volumes:
       - postgres_produtos_data:/var/lib/postgresql/data
 
-  postgres-faturamento:
+  postgres-nota_fiscal:
     image: postgres:16
-    container_name: db_faturamento
+    container_name: db_nota_fiscal
     environment:
-      POSTGRES_USER: faturamento
-      POSTGRES_PASSWORD: faturamento
-      POSTGRES_DB: faturamento
+      POSTGRES_USER: nota_fiscal
+      POSTGRES_PASSWORD: nota_fiscal
+      POSTGRES_DB: nota_fiscal
     ports:
       - "5434:5432"
     volumes:
-      - postgres_faturamento_data:/var/lib/postgresql/data
+      - postgres_nota_fiscal_data:/var/lib/postgresql/data
 
 volumes:
   postgres_produtos_data:
-  postgres_faturamento_data:
+  postgres_nota_fiscal_data:
