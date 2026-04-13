@@ -74,9 +74,14 @@ public class ProductService : IProductService
 
     public async Task<IReadOnlyCollection<ProductResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> ids)
     {
+        if (ids is null)
+        {
+            throw new ValidationException("A lista de IDs é obrigatória.");
+        }
+
         if (ids.Count == 0)
         {
-            throw new ValidationException("Informe ao menos um id.");
+            throw new ValidationException("Informe ao menos um ID.");
         }
 
         var uniqueIds = ids.Distinct().ToList();
@@ -97,7 +102,7 @@ public class ProductService : IProductService
 
     public async Task<ProductResponse> CreateProductAsync(CreateProductRequest request)
     {
-        ValidateRequest(request.Code, request.Name);
+        ValidateRequest(request.Code, request.Name, request.Stock, request.Price);
 
         var code = request.Code.Trim();
         var name = request.Name.Trim();
@@ -138,7 +143,7 @@ public class ProductService : IProductService
             .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
             ?? throw new NotFoundException("Produto não encontrado.");
 
-        ValidateRequest(request.Code, request.Name);
+        ValidateRequest(request.Code, request.Name, request.Stock, request.Price);
 
         var code = request.Code.Trim();
         var name = request.Name.Trim();
@@ -177,16 +182,36 @@ public class ProductService : IProductService
         await _context.SaveChangesAsync();
     }
 
-    private static void ValidateRequest(string code, string name)
+    private static void ValidateRequest(string code, string name, int stock, decimal price)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            throw new ValidationException("Code é obrigatório.");
+            throw new ValidationException("Código é obrigatório.");
+        }
+
+        if (code.Trim().Length > 50)
+        {
+            throw new ValidationException("Código deve ter no máximo 50 caracteres.");
         }
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ValidationException("Name é obrigatório.");
+            throw new ValidationException("Nome é obrigatório.");
+        }
+
+        if (name.Trim().Length > 255)
+        {
+            throw new ValidationException("Nome deve ter no máximo 255 caracteres.");
+        }
+
+        if (stock < 0)
+        {
+            throw new ValidationException("Estoque não pode ser negativo.");
+        }
+
+        if (price < 0)
+        {
+            throw new ValidationException("Preço não pode ser negativo.");
         }
     }
 }

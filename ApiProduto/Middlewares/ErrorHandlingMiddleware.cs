@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ProductsService.Exceptions;
 
 namespace ProductsService.Middlewares;
@@ -37,22 +39,43 @@ public class ErrorHandlingMiddleware
     {
         context.Response.ContentType = "application/problem+json";
 
-        var (statusCode, type, title) = exception switch
+        var (statusCode, type, title, detail) = exception switch
         {
             ValidationException => (
                 (int)HttpStatusCode.BadRequest,
                 "https://httpstatuses.com/400",
-                "Dados inválidos"
+                "Dados inválidos",
+                exception.Message
             ),
             NotFoundException => (
                 (int)HttpStatusCode.NotFound,
                 "https://httpstatuses.com/404",
-                "Recurso não encontrado"
+                "Recurso não encontrado",
+                exception.Message
+            ),
+            DbUpdateConcurrencyException => (
+                (int)HttpStatusCode.Conflict,
+                "https://httpstatuses.com/409",
+                "Conflito de concorrência",
+                "O recurso foi alterado por outro processo. Atualize os dados e tente novamente."
+            ),
+            DbUpdateException dbEx when IsUniqueViolation(dbEx) => (
+                (int)HttpStatusCode.Conflict,
+                "https://httpstatuses.com/409",
+                "Conflito de dados",
+                "Já existe um produto com esse código."
+            ),
+            DbUpdateException => (
+                (int)HttpStatusCode.InternalServerError,
+                "https://httpstatuses.com/500",
+                "Erro ao persistir dados",
+                "Não foi possível salvar os dados no momento. Tente novamente mais tarde."
             ),
             _ => (
                 (int)HttpStatusCode.InternalServerError,
                 "https://httpstatuses.com/500",
-                "Erro interno"
+                "Erro interno",
+                "Ocorreu um erro interno. Tente novamente mais tarde."
             )
         };
 
@@ -66,10 +89,6 @@ public class ErrorHandlingMiddleware
             exception.GetType().Name,
             exception.Message,
             traceId);
-
-        var detail = statusCode == (int)HttpStatusCode.InternalServerError
-            ? "Ocorreu um erro interno. Tente novamente mais tarde."
-            : exception.Message;
 
         var response = new ProblemDetailsResponse
         {
@@ -91,6 +110,11 @@ public class ErrorHandlingMiddleware
         };
 
         await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException exception)
+    {
+        return exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
     }
 
     private sealed class ProblemDetailsResponse

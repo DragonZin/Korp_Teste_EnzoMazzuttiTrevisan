@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ProductsService.Contracts;
+using ProductsService.Exceptions;
 using ProductsService.Interfaces;
 
 namespace ProductsService.Controllers;
@@ -35,6 +36,16 @@ public class ProductsController : ControllerBase
     [HttpPost("batch")]
     public async Task<ActionResult<IReadOnlyCollection<ProductResponse>>> GetProductsByIds([FromBody] GetProductsByIdsRequest request)
     {
+        if (request is null)
+        {
+            throw new ValidationException("O corpo da requisição é obrigatório.");
+        }
+
+        if (request.Ids is null)
+        {
+            throw new ValidationException("A lista de IDs é obrigatória.");
+        }
+
         var products = await _productService.GetProductsByIdsAsync(request.Ids);
         return Ok(products);
     }
