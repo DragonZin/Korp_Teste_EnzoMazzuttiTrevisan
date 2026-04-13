@@ -1,8 +1,9 @@
 @ApiProduto_HostAddress = http://localhost:5242
-@productId = c5e17b4a-0207-432f-8b69-80cb4a867e7f
-
-### Listar produtos ativos
-GET {{ApiProduto_HostAddress}}/api/products
+@productId = deb0f505-e694-4c56-91e7-4ad1e0c8644f
+@page = 1
+@pageSize = 10
+### Listar produtos ativos (paginado)
+GET {{ApiProduto_HostAddress}}/api/products?page={{page}}&pageSize={{pageSize}}
 Accept: application/json
 
 ###
@@ -12,7 +13,7 @@ POST {{ApiProduto_HostAddress}}/api/products
 Content-Type: application/json
 
 {
-  "code": "PRO-002",
+  "code": "PRO-001",
   "name": "Produto Teste",
   "stock": 10,
   "price": 199.99
@@ -23,6 +24,19 @@ Content-Type: application/json
 ### Buscar produto por id
 GET {{ApiProduto_HostAddress}}/api/products/{{productId}}
 Accept: application/json
+
+###
+
+### Buscar produtos por lote de ids
+POST {{ApiProduto_HostAddress}}/api/products/batch
+Content-Type: application/json
+
+{
+  "ids": [
+    "{{productId}}",
+    "58e3fd41-a0f6-475d-8c93-dedd8f228f9e"
+  ]
+}
 
 ###
 
