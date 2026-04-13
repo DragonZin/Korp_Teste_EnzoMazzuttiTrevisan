@@ -4,8 +4,6 @@ namespace ApiInvoice.Contracts;
 
 public class CreateInvoiceRequest
 {
-    public int Number { get; set; }
-
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Open;
 
     public IReadOnlyCollection<CreateInvoiceItemRequest> Items { get; set; } = Array.Empty<CreateInvoiceItemRequest>();

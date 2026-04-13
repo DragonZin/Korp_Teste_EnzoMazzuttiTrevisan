@@ -1,5 +1,5 @@
 @ApiInvoice_HostAddress = http://localhost:5009
-@invoice_id = b015533d-042e-4c47-b816-1880a459fc03
+@invoice_id = 714a9cd6-f81a-4d94-aca4-01ba28b7b4f0
 @page = 1
 @pageSize = 100
 ### Listar notas fiscais
@@ -15,9 +15,8 @@ POST {{ApiInvoice_HostAddress}}/api/invoices
 Content-Type: application/json
 
 {
-  "number": 1001,
   "status": 1,
-  "items": [
+  "products": [
     {
       "productId": "7d6f9b30-d548-44f6-9417-cdc8bc6ea3c5",
       "productCode": "PRD-001",

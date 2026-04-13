@@ -26,7 +26,7 @@ public class InvoiceService : IInvoiceService
 
         var query = _context.Invoices
             .AsNoTracking()
-            .Include(i => i.Items)
+            .Include(i => i.Products)
             .AsQueryable();
 
         if (number.HasValue)
@@ -39,8 +39,8 @@ public class InvoiceService : IInvoiceService
             query = query.Where(i => i.Status == status.Value);
         }
 
-        var totalItems = await query.CountAsync();
-        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+        var totalProducts = await query.CountAsync();
+        var totalPages = totalProducts == 0 ? 0 : (int)Math.Ceiling(totalProducts / (double)normalizedPageSize);
 
         var invoices = await query
             .OrderByDescending(i => i.CreatedAt)
@@ -52,7 +52,7 @@ public class InvoiceService : IInvoiceService
             invoices.Select(MapResponse).ToList(),
             normalizedPage,
             normalizedPageSize,
-            totalItems,
+            totalProducts,
             totalPages);
     }
 
@@ -60,78 +60,33 @@ public class InvoiceService : IInvoiceService
     {
         var invoice = await _context.Invoices
             .AsNoTracking()
-            .Include(i => i.Items)
+            .Include(i => i.Products)
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
         return MapResponse(invoice);
     }
 
-    public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request)
+/*    public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request)
     {
-        ValidateRequest(request.Number, request.Items);
-
-        var numberAlreadyExists = await _context.Invoices.AnyAsync(i => i.Number == request.Number);
-
-        if (numberAlreadyExists)
-        {
-            throw new ValidationException("Já existe uma nota fiscal com esse número.");
-        }
+        ValidateRequest(request.Products);
+        var nextInvoiceNumber = await GetNextInvoiceNumberAsync();
 
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
-            Number = request.Number,
+            Number = nextInvoiceNumber,
             Status = request.Status,
-            Items = request.Items.Select(ToEntity).ToList()
+            Products = request.Products.Select(ToEntity).ToList()
         };
 
-        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice);
+        invoice.TotalAmount = invoice.Products.Sum(i => i.TotalPrice);
 
         _context.Invoices.Add(invoice);
         await _context.SaveChangesAsync();
 
         return await GetInvoiceByIdAsync(invoice.Id);
-    }
-
-    public async Task<InvoiceResponse> UpdateInvoiceAsync(Guid id, UpdateInvoiceRequest request)
-    {
-        var invoice = await _context.Invoices
-            .Include(i => i.Items)
-            .FirstOrDefaultAsync(i => i.Id == id)
-            ?? throw new NotFoundException("Nota fiscal não encontrada.");
-
-        ValidateUpdateRequest(request);
-
-        if (request.Number.HasValue)
-        {
-            var numberAlreadyExists = await _context.Invoices
-                .AnyAsync(i => i.Id != id && i.Number == request.Number.Value);
-
-            if (numberAlreadyExists)
-            {
-                throw new ValidationException("Já existe uma nota fiscal com esse número.");
-            }
-
-            invoice.Number = request.Number.Value;
-        }
-
-        if (request.Items is not null)
-        {
-            invoice.Items.Clear();
-
-            foreach (var item in request.Items)
-            {
-                invoice.Items.Add(ToEntity(item));
-            }
-        }
-
-        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice);
-
-        await _context.SaveChangesAsync();
-
-        return MapResponse(invoice);
-    }
+    }*/
 
     public async Task DeleteInvoiceAsync(Guid id)
     {
@@ -152,7 +107,7 @@ public class InvoiceService : IInvoiceService
             invoice.TotalAmount,
             invoice.CreatedAt,
             invoice.UpdatedAt,
-            invoice.Items.Select(i => new InvoiceItemResponse(
+            invoice.Products.Select(i => new InvoiceItemResponse(
                 i.Id,
                 i.ProductId,
                 i.ProductCode,
@@ -178,51 +133,34 @@ public class InvoiceService : IInvoiceService
         };
     }
 
-    private static void ValidateRequest(int number, IReadOnlyCollection<CreateInvoiceItemRequest> items)
+    private async Task<int> GetNextInvoiceNumberAsync()
+    {
+        const int firstInvoiceNumber = 1000;
+
+        var currentMaxNumber = await _context.Invoices
+            .AsNoTracking()
+            .MaxAsync(i => (int?)i.Number);
+
+        return currentMaxNumber.HasValue
+            ? currentMaxNumber.Value + 1
+            : firstInvoiceNumber;
+    }
+
+    private static void ValidateRequest(int number, IReadOnlyCollection<CreateInvoiceItemRequest> Products)
     {
         if (number <= 0)
         {
             throw new ValidationException("Número da nota fiscal deve ser maior que zero.");
         }
 
-        if (items.Count == 0)
+        if (Products.Count == 0)
         {
             throw new ValidationException("Informe ao menos um item na nota fiscal.");
         }
 
-        foreach (var item in items)
+        foreach (var item in Products)
         {
             ValidateItem(item);
-        }
-    }
-
-    private static void ValidateUpdateRequest(UpdateInvoiceRequest request)
-    {
-        var hasAnyFieldToUpdate =
-            request.Number.HasValue ||
-            request.Items is not null;
-
-        if (!hasAnyFieldToUpdate)
-        {
-            throw new ValidationException("Informe ao menos um campo para atualização.");
-        }
-
-        if (request.Number.HasValue && request.Number.Value <= 0)
-        {
-            throw new ValidationException("Número da nota fiscal deve ser maior que zero.");
-        }
-
-        if (request.Items is not null)
-        {
-            if (request.Items.Count == 0)
-            {
-                throw new ValidationException("Informe ao menos um item na nota fiscal.");
-            }
-
-            foreach (var item in request.Items)
-            {
-                ValidateItem(item);
-            }
         }
     }
 

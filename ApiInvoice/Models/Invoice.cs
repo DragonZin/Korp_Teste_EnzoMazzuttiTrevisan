@@ -12,5 +12,5 @@ public class Invoice
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; }
 
-    public ICollection<InvoiceProduct> Items { get; set; } = new List<InvoiceProduct>();
+    public ICollection<InvoiceProduct> Products { get; set; } = new List<InvoiceProduct>();
 }

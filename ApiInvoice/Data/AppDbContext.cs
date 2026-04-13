@@ -6,7 +6,7 @@ namespace ApiInvoice.Data;
 public class AppDbContext : DbContext
 {
     public DbSet<Invoice> Invoices => Set<Invoice>();
-    public DbSet<InvoiceProduct> InvoiceItems => Set<InvoiceProduct>();
+    public DbSet<InvoiceProduct> InvoiceProducts => Set<InvoiceProduct>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -51,7 +51,7 @@ public class AppDbContext : DbContext
                 .HasColumnName("updated_at")
                 .IsRequired();
 
-            entity.HasMany(i => i.Items)
+            entity.HasMany(i => i.Products)
                 .WithOne(i => i.Invoice)
                 .HasForeignKey(i => i.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -59,7 +59,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<InvoiceProduct>(entity =>
         {
-            entity.ToTable("invoice_items");
+            entity.ToTable("invoice_products");
 
             entity.HasKey(i => i.Id);
 

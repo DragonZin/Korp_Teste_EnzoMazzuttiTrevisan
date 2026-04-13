@@ -34,19 +34,13 @@ public class InvoicesController : ControllerBase
         return Ok(invoice);
     }
 
-    [HttpPost]
+    /*[HttpPost]
     public async Task<ActionResult<InvoiceResponse>> CreateInvoice(CreateInvoiceRequest request)
     {
         var invoice = await _invoiceService.CreateInvoiceAsync(request);
         return CreatedAtAction(nameof(GetInvoice), new { id = invoice.Id }, invoice);
-    }
+    }*/
 
-    [HttpPut("{id:guid}")]
-    public async Task<ActionResult<InvoiceResponse>> UpdateInvoice(Guid id, UpdateInvoiceRequest request)
-    {
-        var invoice = await _invoiceService.UpdateInvoiceAsync(id, request);
-        return Ok(invoice);
-    }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteInvoice(Guid id)
