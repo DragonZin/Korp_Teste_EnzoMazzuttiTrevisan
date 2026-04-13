@@ -1,6 +1,40 @@
-@ApiNotaFiscal_HostAddress = http://localhost:5009
-
-GET {{ApiNotaFiscal_HostAddress}}/weatherforecast/
+@ApiInvoice_HostAddress = http://localhost:5009
+@invoice_id = b015533d-042e-4c47-b816-1880a459fc03
+@page = 1
+@pageSize = 100
+### Listar notas fiscais
+GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}
 Accept: application/json
 
-###
+### Buscar nota fiscal por id
+GET {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
+Accept: application/json
+
+### Criar nota fiscal
+POST {{ApiInvoice_HostAddress}}/api/invoices
+Content-Type: application/json
+
+{
+  "number": 1001,
+  "status": 1,
+  "items": [
+    {
+      "productId": "7d6f9b30-d548-44f6-9417-cdc8bc6ea3c5",
+      "productCode": "PRD-001",
+      "productName": "Produto 1",
+      "unitPrice": 35.50,
+      "quantity": 2
+    }
+  ]
+}
+
+### Atualizar nota fiscal
+PUT {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
+Content-Type: application/json
+
+{
+  "status": 2
+}
+
+### Excluir nota fiscal
+DELETE {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}

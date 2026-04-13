@@ -1,41 +1,59 @@
+using ApiInvoice.Data;
+using ApiInvoice.Extensions;
+using ApiInvoice.Interfaces;
+using ApiInvoice.Middlewares;
+using ApiInvoice.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.AddCleanConsoleLogging();
+Console.WriteLine("Working...");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(x => x.Value?.Errors.Count > 0)
+            .ToDictionary(
+                keySelector: x => x.Key,
+                elementSelector: x => x.Value!.Errors
+                    .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage)
+                        ? "Valor inválido."
+                        : error.ErrorMessage)
+                    .ToArray());
+
+        var response = new
+        {
+            type = "https://httpstatuses.com/400",
+            title = "Dados inválidos",
+            status = StatusCodes.Status400BadRequest,
+            detail = "Um ou mais campos da requisição são inválidos.",
+            instance = context.HttpContext.Request.Path.ToString(),
+            traceId = context.HttpContext.TraceIdentifier,
+            timestamp = DateTime.UtcNow,
+            errors
+        };
+
+        return new BadRequestObjectResult(response)
+        {
+            ContentTypes = { "application/problem+json" }
+        };
+    };
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
