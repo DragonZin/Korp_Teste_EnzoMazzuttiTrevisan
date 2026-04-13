@@ -8,10 +8,14 @@ namespace ProductsService.Middlewares;
 public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ErrorHandlingMiddleware> _logger;
 
-    public ErrorHandlingMiddleware(RequestDelegate next)
+    public ErrorHandlingMiddleware(
+        RequestDelegate next,
+        ILogger<ErrorHandlingMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -22,11 +26,14 @@ public class ErrorHandlingMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(context, ex);
+            await HandleExceptionAsync(context, ex, _logger);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(
+        HttpContext context,
+        Exception exception,
+        ILogger<ErrorHandlingMiddleware> logger)
     {
         context.Response.ContentType = "application/problem+json";
 
@@ -50,15 +57,28 @@ public class ErrorHandlingMiddleware
         };
 
         context.Response.StatusCode = statusCode;
+        var traceId = context.TraceIdentifier;
+
+        logger.LogError(
+            exception,
+            "Erro processando requisição. StatusCode: {StatusCode}, ExceptionType: {ExceptionType}, ExceptionMessage: {ExceptionMessage}, TraceId: {TraceId}",
+            statusCode,
+            exception.GetType().Name,
+            exception.Message,
+            traceId);
+
+        var detail = statusCode == (int)HttpStatusCode.InternalServerError
+            ? "Ocorreu um erro interno. Tente novamente mais tarde."
+            : exception.Message;
 
         var response = new ProblemDetailsResponse
         {
             Type = type,
             Title = title,
             Status = statusCode,
-            Detail = exception.Message,
+            Detail = detail,
             Instance = context.Request.Path.ToString(),
-            TraceId = context.TraceIdentifier,
+            TraceId = traceId,
             Timestamp = DateTime.UtcNow,
             Errors = exception is ValidationException && exception.Data.Count > 0
                 ? exception.Data
