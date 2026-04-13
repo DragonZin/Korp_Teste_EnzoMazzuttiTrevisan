@@ -1,4 +1,4 @@
-namespace ProductsService.Exceptions;
+namespace ApiProduct.Exceptions;
 
 public class ValidationException : Exception
 {

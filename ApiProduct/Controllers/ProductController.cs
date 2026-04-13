@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using ProductsService.Contracts;
-using ProductsService.Exceptions;
-using ProductsService.Interfaces;
+using ApiProduct.Contracts;
+using ApiProduct.Exceptions;
+using ApiProduct.Interfaces;
 
-namespace ProductsService.Controllers;
+namespace ApiProduct.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

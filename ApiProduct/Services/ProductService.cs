@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
-using ProductsService.Contracts;
-using ProductsService.Data;
-using ProductsService.Exceptions;
-using ProductsService.Interfaces;
-using ProductsService.Models;
+using ApiProduct.Contracts;
+using ApiProduct.Data;
+using ApiProduct.Exceptions;
+using ApiProduct.Interfaces;
+using ApiProduct.Models;
 
-namespace ProductsService.Services;
+namespace ApiProduct.Services;
 
 public class ProductService : IProductService
 {

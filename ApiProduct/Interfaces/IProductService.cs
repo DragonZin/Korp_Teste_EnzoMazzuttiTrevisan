@@ -1,7 +1,7 @@
-using ProductsService.Contracts;
-using ProductsService.Models;
+using ApiProduct.Contracts;
+using ApiProduct.Models;
 
-namespace ProductsService.Interfaces;
+namespace ApiProduct.Interfaces;
 
 public interface IProductService
 {

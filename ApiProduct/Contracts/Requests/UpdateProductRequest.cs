@@ -1,4 +1,4 @@
-namespace ProductsService.Contracts;
+namespace ApiProduct.Contracts;
 
 public class UpdateProductRequest
 {

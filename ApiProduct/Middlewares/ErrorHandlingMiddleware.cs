@@ -3,9 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using ProductsService.Exceptions;
+using ApiProduct.Exceptions;
 
-namespace ProductsService.Middlewares;
+namespace ApiProduct.Middlewares;
 
 public class ErrorHandlingMiddleware
 {

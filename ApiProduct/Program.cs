@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
-using ProductsService.Data;
-using ProductsService.Middlewares;
-using ProductsService.Services;
-using ProductsService.Interfaces;
+using ApiProduct.Data;
+using ApiProduct.Extensions;
+using ApiProduct.Interfaces;
+using ApiProduct.Middlewares;
+using ApiProduct.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddCleanConsoleLogging();
+Console.WriteLine("Working...");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -49,6 +53,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 var app = builder.Build();
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.MapControllers();
 
 app.Run();

@@ -1,4 +1,4 @@
-namespace ProductsService.Contracts;
+namespace ApiProduct.Contracts;
 
 public record PagedResponse<T>(
     IReadOnlyCollection<T> Items,
