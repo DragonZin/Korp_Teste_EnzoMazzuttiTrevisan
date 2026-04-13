@@ -9,5 +9,5 @@ public record InvoiceResponse(
     decimal TotalAmount,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    IReadOnlyCollection<InvoiceItemResponse> Items
+    IReadOnlyCollection<InvoiceItemResponse> Products
 );

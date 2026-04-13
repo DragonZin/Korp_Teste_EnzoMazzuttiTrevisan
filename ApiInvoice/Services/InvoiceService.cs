@@ -67,26 +67,24 @@ public class InvoiceService : IInvoiceService
         return MapResponse(invoice);
     }
 
-/*    public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request)
+    public async Task<InvoiceResponse> CreateInvoiceAsync()
     {
-        ValidateRequest(request.Products);
         var nextInvoiceNumber = await GetNextInvoiceNumberAsync();
 
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
             Number = nextInvoiceNumber,
-            Status = request.Status,
-            Products = request.Products.Select(ToEntity).ToList()
+            TotalAmount = 0,
+            Status = InvoiceStatus.Open,
+            Products = []
         };
-
-        invoice.TotalAmount = invoice.Products.Sum(i => i.TotalPrice);
 
         _context.Invoices.Add(invoice);
         await _context.SaveChangesAsync();
 
         return await GetInvoiceByIdAsync(invoice.Id);
-    }*/
+    }
 
     public async Task DeleteInvoiceAsync(Guid id)
     {

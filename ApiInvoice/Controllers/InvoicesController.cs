@@ -34,13 +34,12 @@ public class InvoicesController : ControllerBase
         return Ok(invoice);
     }
 
-    /*[HttpPost]
-    public async Task<ActionResult<InvoiceResponse>> CreateInvoice(CreateInvoiceRequest request)
+    [HttpPost]
+    public async Task<ActionResult<InvoiceResponse>> CreateInvoice()
     {
-        var invoice = await _invoiceService.CreateInvoiceAsync(request);
+        var invoice = await _invoiceService.CreateInvoiceAsync();
         return CreatedAtAction(nameof(GetInvoice), new { id = invoice.Id }, invoice);
-    }*/
-
+    }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteInvoice(Guid id)

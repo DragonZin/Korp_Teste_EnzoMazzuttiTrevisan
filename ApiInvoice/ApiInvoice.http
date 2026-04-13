@@ -14,18 +14,6 @@ Accept: application/json
 POST {{ApiInvoice_HostAddress}}/api/invoices
 Content-Type: application/json
 
-{
-  "status": 1,
-  "products": [
-    {
-      "productId": "7d6f9b30-d548-44f6-9417-cdc8bc6ea3c5",
-      "productCode": "PRD-001",
-      "productName": "Produto 1",
-      "unitPrice": 35.50,
-      "quantity": 2
-    }
-  ]
-}
 
 ### Atualizar nota fiscal
 PUT {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
