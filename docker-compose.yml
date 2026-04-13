@@ -1,0 +1,29 @@
+services:
+
+  postgres-produtos:
+    image: postgres:16
+    container_name: db_produtos
+    environment:
+      POSTGRES_USER: produtos
+      POSTGRES_PASSWORD: produtos
+      POSTGRES_DB: produtos
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_produtos_data:/var/lib/postgresql/data
+
+  postgres-faturamento:
+    image: postgres:16
+    container_name: db_faturamento
+    environment:
+      POSTGRES_USER: faturamento
+      POSTGRES_PASSWORD: faturamento
+      POSTGRES_DB: faturamento
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_faturamento_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_produtos_data:
+  postgres_faturamento_data:
