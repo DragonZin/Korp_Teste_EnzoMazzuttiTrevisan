@@ -1,0 +1,44 @@
+@ApiProduto_HostAddress = http://localhost:5242
+@productId = 23e5b6db-cebd-4033-96c8-3babb4fa9a05
+
+### Listar produtos ativos
+GET {{ApiProduto_HostAddress}}/api/products
+Accept: application/json
+
+###
+
+### Criar produto
+POST {{ApiProduto_HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "code": "PRO-001",
+  "name": "Produto Teste",
+  "stock": 10,
+  "price": 199.99
+}
+
+###
+
+### Buscar produto por id
+GET {{ApiProduto_HostAddress}}/api/products/{{productId}}
+Accept: application/json
+
+###
+
+### Atualizar produto
+PUT {{ApiProduto_HostAddress}}/api/products/{{productId}}
+Content-Type: application/json
+
+{
+  "code": "PRD-001",
+  "name": "Produto Teste Atualizado",
+  "stock": 29,
+  "price": 249.99
+}
+
+###
+
+### Deletar (soft delete)
+DELETE {{ApiProduto_HostAddress}}/api/products/{{productId}}
+Accept: application/json

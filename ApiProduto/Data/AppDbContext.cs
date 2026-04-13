@@ -18,10 +18,14 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Product>(entity =>
         {
-            entity.ToTable("Products");
+            entity.ToTable("products");
 
             entity.HasKey(p => p.Id);
            
+            entity.HasIndex(p => p.Code)
+                .IsUnique()
+                .HasFilter("\"is_deleted\" = false");
+
             entity.HasQueryFilter(p => !p.IsDeleted);
 
             entity.Property(p => p.Id)
@@ -43,6 +47,7 @@ public class AppDbContext : DbContext
 
             entity.Property(p => p.Price)
                 .HasColumnName("price")
+                .HasColumnType("numeric(10,2)")
                 .IsRequired();
 
             entity.Property(p => p.IsDeleted)

@@ -18,22 +18,37 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts()
     {
         var products = await _context.Products
             .AsNoTracking()
             .OrderBy(p => p.Name)
+            .Select(p => new ProductResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Stock,
+                p.Price
+            ))
             .ToListAsync();
 
         return Ok(products);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Product>> GetProduct(Guid id)
+    public async Task<ActionResult<ProductResponse>> GetProduct(Guid id)
     {
         var product = await _context.Products
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .Where(p => p.Id == id)
+            .Select(p => new ProductResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Stock,
+                p.Price
+            ))
+            .FirstOrDefaultAsync();
 
         if (product is null)
         {
