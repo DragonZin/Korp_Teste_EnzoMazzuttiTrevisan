@@ -21,9 +21,16 @@ public class AppDbContext : DbContext
             entity.ToTable("Products");
 
             entity.HasKey(p => p.Id);
+           
+            entity.HasQueryFilter(p => !p.IsDeleted);
 
             entity.Property(p => p.Id)
                 .HasColumnName("id");
+            
+            entity.Property(p => p.Code)
+                .HasColumnName("code")
+                .IsRequired()
+                .HasMaxLength(50);
 
             entity.Property(p => p.Name)
                 .HasColumnName("name")
@@ -33,6 +40,15 @@ public class AppDbContext : DbContext
             entity.Property(p => p.Stock)
                 .HasColumnName("stock")
                 .IsRequired();
+
+            entity.Property(p => p.Price)
+                .HasColumnName("price")
+                .IsRequired();
+
+            entity.Property(p => p.IsDeleted)
+                .HasColumnName("is_deleted")
+                .IsRequired()
+                .HasDefaultValue(false);
 
             entity.Property(p => p.CreatedAt)
                 .HasColumnName("created_at")
