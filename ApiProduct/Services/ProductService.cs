@@ -143,23 +143,37 @@ public class ProductService : IProductService
             .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
             ?? throw new NotFoundException("Produto não encontrado.");
 
-        ValidateRequest(request.Code, request.Name, request.Stock, request.Price);
+        ValidateUpdateRequest(request);
 
-        var code = request.Code.Trim();
-        var name = request.Name.Trim();
-
-        var codeAlreadyExists = await _context.Products
-            .AnyAsync(p => p.Id != id && p.Code == code && !p.IsDeleted);
-
-        if (codeAlreadyExists)
+        if (request.Code is not null)
         {
-            throw new ValidationException("Já existe um produto com esse código.");
+            var code = request.Code.Trim();
+
+            var codeAlreadyExists = await _context.Products
+                .AnyAsync(p => p.Id != id && p.Code == code && !p.IsDeleted);
+
+            if (codeAlreadyExists)
+            {
+                throw new ValidationException("Já existe um produto com esse código.");
+            }
+
+            product.Code = code;
         }
 
-        product.Code = code;
-        product.Name = name;
-        product.Stock = request.Stock;
-        product.Price = request.Price;
+        if (request.Name is not null)
+        {
+            product.Name = request.Name.Trim();
+        }
+
+        if (request.Stock.HasValue)
+        {
+            product.Stock = request.Stock.Value;
+        }
+
+        if (request.Price.HasValue)
+        {
+            product.Price = request.Price.Value;
+        }
 
         await _context.SaveChangesAsync();
 
@@ -210,6 +224,56 @@ public class ProductService : IProductService
         }
 
         if (price < 0)
+        {
+            throw new ValidationException("Preço não pode ser negativo.");
+        }
+    }
+
+    private static void ValidateUpdateRequest(UpdateProductRequest request)
+    {
+        var hasAnyFieldToUpdate =
+            request.Code is not null ||
+            request.Name is not null ||
+            request.Stock.HasValue ||
+            request.Price.HasValue;
+
+        if (!hasAnyFieldToUpdate)
+        {
+            throw new ValidationException("Informe ao menos um campo para atualização.");
+        }
+
+        if (request.Code is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.Code))
+            {
+                throw new ValidationException("Código é obrigatório.");
+            }
+
+            if (request.Code.Trim().Length > 50)
+            {
+                throw new ValidationException("Código deve ter no máximo 50 caracteres.");
+            }
+        }
+
+        if (request.Name is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                throw new ValidationException("Nome é obrigatório.");
+            }
+
+            if (request.Name.Trim().Length > 255)
+            {
+                throw new ValidationException("Nome deve ter no máximo 255 caracteres.");
+            }
+        }
+
+        if (request.Stock.HasValue && request.Stock.Value < 0)
+        {
+            throw new ValidationException("Estoque não pode ser negativo.");
+        }
+
+        if (request.Price.HasValue && request.Price.Value < 0)
         {
             throw new ValidationException("Preço não pode ser negativo.");
         }

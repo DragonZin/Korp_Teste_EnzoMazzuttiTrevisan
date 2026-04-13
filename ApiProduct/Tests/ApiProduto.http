@@ -1,5 +1,5 @@
 @ApiProduto_HostAddress = http://localhost:5242
-@productId = deb0f505-e694-4c56-91e7-4ad1e0c8644f
+@productId = b015533d-042e-4c47-b816-1880a459fc03
 @page = 1
 @pageSize = 10
 ### Listar produtos ativos (paginado)
@@ -45,7 +45,6 @@ PUT {{ApiProduto_HostAddress}}/api/products/{{productId}}
 Content-Type: application/json
 
 {
-  "code": "PRD-001",
   "name": "Produto Teste Atualizado",
   "stock": 29,
   "price": 249.99

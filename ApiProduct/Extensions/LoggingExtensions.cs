@@ -9,7 +9,10 @@ public static class LoggingExtensions
         builder.Logging.SetMinimumLevel(LogLevel.Information);
 
         builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
-        builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Information);
+        builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc.Infrastructure", LogLevel.Warning);
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Error);
 
