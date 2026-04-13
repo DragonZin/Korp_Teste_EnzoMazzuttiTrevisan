@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ProductsService.Contracts;
-using ProductsService.Services;
+using ProductsService.Interfaces;
 
 namespace ProductsService.Controllers;
 
@@ -16,9 +16,12 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts()
+    public async Task<ActionResult<PagedResponse<ProductResponse>>> GetProducts(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var products = await _productService.GetProductsAsync();
+        var products = await _productService.GetProductsAsync(search, page, pageSize);
         return Ok(products);
     }
 
@@ -27,6 +30,13 @@ public class ProductsController : ControllerBase
     {
         var product = await _productService.GetProductByIdAsync(id);
         return Ok(product);
+    }
+
+    [HttpPost("batch")]
+    public async Task<ActionResult<IReadOnlyCollection<ProductResponse>>> GetProductsByIds([FromBody] GetProductsByIdsRequest request)
+    {
+        var products = await _productService.GetProductsByIdsAsync(request.Ids);
+        return Ok(products);
     }
 
     [HttpPost]

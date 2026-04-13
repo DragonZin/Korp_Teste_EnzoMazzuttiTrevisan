@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ProductsService.Data;
 using ProductsService.Middlewares;
 using ProductsService.Services;
+using ProductsService.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 

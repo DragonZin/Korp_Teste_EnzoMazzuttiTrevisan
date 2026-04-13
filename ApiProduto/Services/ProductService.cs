@@ -2,12 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using ProductsService.Contracts;
 using ProductsService.Data;
 using ProductsService.Exceptions;
+using ProductsService.Interfaces;
 using ProductsService.Models;
 
 namespace ProductsService.Services;
 
 public class ProductService : IProductService
 {
+    private const int MaxPageSize = 100;
     private readonly AppDbContext _context;
 
     public ProductService(AppDbContext context)
@@ -15,12 +17,26 @@ public class ProductService : IProductService
         _context = context;
     }
 
-    public async Task<IEnumerable<ProductResponse>> GetProductsAsync()
+    public async Task<PagedResponse<ProductResponse>> GetProductsAsync(string? search, int page, int pageSize)
     {
-        return await _context.Products
-            .AsNoTracking()
-            .Where(p => !p.IsDeleted)
+        var normalizedPage = page < 1 ? 1 : page;
+        var normalizedPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
+
+        var query = _context.Products.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(p => p.Name.Contains(term) || p.Code.Contains(term));
+        }
+
+        var totalItems = await query.CountAsync();
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+
+        var items = await query
             .OrderBy(p => p.Name)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
             .Select(p => new ProductResponse(
                 p.Id,
                 p.Code,
@@ -29,13 +45,21 @@ public class ProductService : IProductService
                 p.Price
             ))
             .ToListAsync();
+
+        return new PagedResponse<ProductResponse>(
+            items,
+            normalizedPage,
+            normalizedPageSize,
+            totalItems,
+            totalPages
+        );
     }
 
     public async Task<ProductResponse> GetProductByIdAsync(Guid id)
     {
         var product = await _context.Products
             .AsNoTracking()
-            .Where(p => p.Id == id && !p.IsDeleted)
+            .Where(p => p.Id == id)
             .Select(p => new ProductResponse(
                 p.Id,
                 p.Code,
@@ -46,6 +70,29 @@ public class ProductService : IProductService
             .FirstOrDefaultAsync();
 
         return product ?? throw new NotFoundException("Produto não encontrado.");
+    }
+
+    public async Task<IReadOnlyCollection<ProductResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> ids)
+    {
+        if (ids.Count == 0)
+        {
+            throw new ValidationException("Informe ao menos um id.");
+        }
+
+        var uniqueIds = ids.Distinct().ToList();
+
+        return await _context.Products
+            .AsNoTracking()
+            .Where(p => uniqueIds.Contains(p.Id))
+            .OrderBy(p => p.Name)
+            .Select(p => new ProductResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Stock,
+                p.Price
+            ))
+            .ToListAsync();
     }
 
     public async Task<ProductResponse> CreateProductAsync(CreateProductRequest request)
