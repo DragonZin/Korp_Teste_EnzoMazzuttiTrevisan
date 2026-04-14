@@ -123,61 +123,75 @@ public class InvoiceService : IInvoiceService
     public async Task<InvoiceResponse> ManageInvoiceItemsAsync(Guid id, ManageInvoiceItemsRequest request)
     {
         ValidateManageItemsRequest(request);
+        const int maxAttempts = 2;
 
-        var invoice = await _context.Invoices
-            .Include(i => i.Products)
-            .FirstOrDefaultAsync(i => i.Id == id)
-            ?? throw new NotFoundException("Nota fiscal não encontrada.");
-
-        EnsureInvoiceIsOpen(invoice);
-
-        var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
-        var idsToLoad = requestByProductId.Keys
-            .Where(productId => invoice.Products.All(i => i.ProductId != productId) && requestByProductId[productId].Quantity > 0)
-            .ToList();
-
-        var productsById = await GetProductsByIdsAsync(idsToLoad);
-
-        foreach (var itemRequest in request.Products)
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            var existingItem = invoice.Products.FirstOrDefault(p => p.ProductId == itemRequest.ProductId);
+            var invoice = await _context.Invoices
+                .Include(i => i.Products)
+                .FirstOrDefaultAsync(i => i.Id == id)
+                ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
-            if (itemRequest.Quantity == 0)
+            EnsureInvoiceIsOpen(invoice);
+
+            var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
+            var idsToLoad = requestByProductId.Keys
+                .Where(productId => invoice.Products.All(i => i.ProductId != productId) && requestByProductId[productId].Quantity > 0)
+                .ToList();
+
+            var productsById = await GetProductsByIdsAsync(idsToLoad);
+
+            foreach (var itemRequest in request.Products)
             {
-                if (existingItem is null)
+                var existingItem = invoice.Products.FirstOrDefault(p => p.ProductId == itemRequest.ProductId);
+
+                if (itemRequest.Quantity == 0)
                 {
-                    throw new NotFoundException($"Item com produto {itemRequest.ProductId} não encontrado na nota fiscal.");
+                    if (existingItem is null)
+                    {
+                        throw new NotFoundException($"Item com produto {itemRequest.ProductId} não encontrado na nota fiscal.");
+                    }
+
+                    invoice.Products.Remove(existingItem);
+                    continue;
                 }
 
-                invoice.Products.Remove(existingItem);
-                continue;
+                if (existingItem is not null)
+                {
+                    existingItem.Quantity = itemRequest.Quantity;
+                    continue;
+                }
+
+                if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
+                {
+                    throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
+                }
+
+                invoice.Products.Add(new InvoiceProduct
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = itemRequest.ProductId,
+                    ProductCode = product.Code,
+                    ProductName = product.Name,
+                    UnitPrice = product.Price,
+                    Quantity = itemRequest.Quantity
+                });
             }
 
-            if (existingItem is not null)
-            {
-                existingItem.Quantity = itemRequest.Quantity;
-                continue;
-            }
+            RecalculateInvoiceTotal(invoice);
 
-            if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
+            try
             {
-                throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
+                await _context.SaveChangesAsync();
+                return await GetInvoiceByIdAsync(invoice.Id);
             }
-
-            invoice.Products.Add(new InvoiceProduct
+            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
             {
-                Id = Guid.NewGuid(),
-                ProductId = itemRequest.ProductId,
-                ProductCode = product.Code,
-                ProductName = product.Name,
-                UnitPrice = product.Price,
-                Quantity = itemRequest.Quantity
-            });
+                _context.ChangeTracker.Clear();
+            }
         }
 
-        RecalculateInvoiceTotal(invoice);
-        await _context.SaveChangesAsync();
-        return await GetInvoiceByIdAsync(invoice.Id);
+        throw new ValidationException("A nota fiscal foi alterada por outro processo. Atualize os dados e tente novamente.");
     }
 
     public async Task<InvoiceResponse> CloseInvoiceAsync(Guid id)

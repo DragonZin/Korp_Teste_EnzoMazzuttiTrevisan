@@ -22,7 +22,7 @@ Content-Type: application/json
   "customerDocument": "12345678901"
 }
 
-### Adicionar produto na nota fiscal
+### Adicionar produtos na nota fiscal
 PUT {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}/items
 Content-Type: application/json
 
