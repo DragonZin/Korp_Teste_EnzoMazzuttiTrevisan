@@ -2,6 +2,8 @@
 @productId = b015533d-042e-4c47-b816-1880a459fc03
 @page = 1
 @pageSize = 10
+@idemKeyProductCreate = product-create-001
+
 ### Health check
 GET {{ApiProduto_HostAddress}}/health
 
@@ -9,9 +11,7 @@ GET {{ApiProduto_HostAddress}}/health
 GET {{ApiProduto_HostAddress}}/api/products?page={{page}}&pageSize={{pageSize}}
 Accept: application/json
 
-###
-
-### Criar produto
+### Criar produto (sem idempotência)
 POST {{ApiProduto_HostAddress}}/api/products
 Content-Type: application/json
 
@@ -22,13 +22,21 @@ Content-Type: application/json
   "price": 199.99
 }
 
-###
+### Criar produto com idempotência
+POST {{ApiProduto_HostAddress}}/api/products
+Content-Type: application/json
+Idempotency-Key: {{idemKeyProductCreate}}
+
+{
+  "code": "PRO-IDEMP-001",
+  "name": "Produto Idempotente",
+  "stock": 5,
+  "price": 99.90
+}
 
 ### Buscar produto por id
 GET {{ApiProduto_HostAddress}}/api/products/{{productId}}
 Accept: application/json
-
-###
 
 ### Buscar produtos por lote de ids
 POST {{ApiProduto_HostAddress}}/api/products/batch
@@ -41,8 +49,6 @@ Content-Type: application/json
   ]
 }
 
-###
-
 ### Atualizar produto
 PUT {{ApiProduto_HostAddress}}/api/products/{{productId}}
 Content-Type: application/json
@@ -52,8 +58,6 @@ Content-Type: application/json
   "stock": 29,
   "price": 249.99
 }
-
-###
 
 ### Deletar (soft delete)
 DELETE {{ApiProduto_HostAddress}}/api/products/{{productId}}

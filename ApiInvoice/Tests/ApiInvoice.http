@@ -3,6 +3,9 @@
 @product_id = 9716b6ae-f6bc-4ef1-82de-83dff34e14a7
 @page = 1
 @pageSize = 100
+@idemKeyInvoiceCreate = invoice-create-001
+@idemKeyInvoiceClose = invoice-close-001
+
 ### Health check
 GET {{ApiInvoice_HostAddress}}/health
 
@@ -18,7 +21,7 @@ Accept: application/json
 GET {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
 Accept: application/json
 
-### Criar nota fiscal
+### Criar nota fiscal (sem idempotência)
 POST {{ApiInvoice_HostAddress}}/api/invoices
 Content-Type: application/json
 
@@ -27,8 +30,19 @@ Content-Type: application/json
   "customerDocument": "12345678901"
 }
 
-### Fechar nota fiscal
+### Criar nota fiscal com idempotência
+POST {{ApiInvoice_HostAddress}}/api/invoices
+Content-Type: application/json
+Idempotency-Key: {{idemKeyInvoiceCreate}}
+
+{
+  "customerName": "Cliente Idempotente",
+  "customerDocument": "98765432100"
+}
+
+### Fechar nota fiscal com idempotência
 PUT {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}/close
+Idempotency-Key: {{idemKeyInvoiceClose}}
 
 ### Excluir nota fiscal
 DELETE {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
