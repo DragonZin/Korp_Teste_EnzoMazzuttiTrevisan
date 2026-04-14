@@ -24,6 +24,7 @@ builder.Services.AddHttpClient("ProductApi", client =>
 });
 
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<IInvoiceProductService, InvoiceProductService>();
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {

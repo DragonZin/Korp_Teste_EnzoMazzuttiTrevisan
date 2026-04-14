@@ -10,10 +10,12 @@ namespace ApiInvoice.Controllers;
 public class InvoicesController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
+    private readonly IInvoiceProductService _invoiceProductService;
 
-    public InvoicesController(IInvoiceService invoiceService)
+    public InvoicesController(IInvoiceService invoiceService, IInvoiceProductService invoiceProductService)
     {
         _invoiceService = invoiceService;
+        _invoiceProductService = invoiceProductService;
     }
 
     [HttpGet]
@@ -51,7 +53,7 @@ public class InvoicesController : ControllerBase
     [HttpPut("{id:guid}/items")]
     public async Task<ActionResult<InvoiceResponse>> ManageInvoiceItems(Guid id, [FromBody] ManageInvoiceItemsRequest request)
     {
-        var invoice = await _invoiceService.ManageInvoiceItemsAsync(id, request);
+        var invoice = await _invoiceProductService.ManageInvoiceItemsAsync(id, request);
         return Ok(invoice);
     }
     
@@ -61,7 +63,6 @@ public class InvoicesController : ControllerBase
         var invoice = await _invoiceService.CloseInvoiceAsync(id);
         return Ok(invoice);
     }
-
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteInvoice(Guid id)
