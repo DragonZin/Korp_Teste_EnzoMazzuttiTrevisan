@@ -42,7 +42,6 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
-                p.ReservedStock,
                 p.Price))
             .ToListAsync();
 
@@ -65,7 +64,6 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
-                p.ReservedStock,
                 p.Price))
             .FirstOrDefaultAsync();
 
@@ -95,7 +93,6 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
-                p.ReservedStock,
                 p.Price))
             .ToListAsync();
     }
@@ -121,12 +118,11 @@ public class ProductService : IProductService
             Code = code,
             Name = name,
             Stock = request.Stock,
-            ReservedStock = 0,
             Price = request.Price,
             IsDeleted = false
         };
         
-        ValidateStockConsistency(product.Stock, product.ReservedStock);
+        ValidateStock(product.Stock);
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
@@ -172,7 +168,7 @@ public class ProductService : IProductService
             product.Price = request.Price.Value;
         }
 
-        ValidateStockConsistency(product.Stock, product.ReservedStock);
+        ValidateStock(product.Stock);
 
         await _context.SaveChangesAsync();
 
@@ -191,9 +187,7 @@ public class ProductService : IProductService
             ?? throw new NotFoundException("Produto não encontrado.");
 
         product.Stock += request.StockDelta;
-        product.ReservedStock += request.ReservedStockDelta;
-
-        ValidateStockConsistency(product.Stock, product.ReservedStock);
+        ValidateStock(product.Stock);
 
         await _context.SaveChangesAsync();
 
@@ -216,7 +210,6 @@ public class ProductService : IProductService
             product.Code,
             product.Name,
             product.Stock,
-            product.ReservedStock,
             product.Price);
 
     private static void ValidateCreateRequest(CreateProductRequest request)
@@ -305,21 +298,11 @@ public class ProductService : IProductService
         }
     }
 
-    private static void ValidateStockConsistency(int stock, int reservedStock)
+    private static void ValidateStock(int stock)
     {
         if (stock < 0)
         {
             throw new ValidationException("Estoque não pode ser negativo.");
-        }
-
-        if (reservedStock < 0)
-        {
-            throw new ValidationException("Estoque reservado não pode ser negativo.");
-        }
-
-        if (reservedStock > stock)
-        {
-            throw new ValidationException("Estoque reservado não pode ser maior que o estoque total.");
         }
     }
 }

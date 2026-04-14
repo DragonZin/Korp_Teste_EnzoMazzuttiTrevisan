@@ -51,20 +51,9 @@ public class InvoiceProductService : IInvoiceProductService
                 throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
             }
 
-            var previousQuantity = 0;
+            existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem);
 
-            if (existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem))
-            {
-                previousQuantity = existingItem.Quantity;
-            }
-
-            var quantityDelta = itemRequest.Quantity - previousQuantity;
-            EnsureProductAvailability(product, quantityDelta);
-
-            if (quantityDelta != 0)
-            {
-                await AdjustProductInventoryAsync(product.Id, reservedStockDelta: quantityDelta);
-        }
+            await EnsureProductAvailabilityAsync(product, invoiceId, itemRequest.Quantity);
 
             if (existingItem is not null)
             {
@@ -116,8 +105,6 @@ public class InvoiceProductService : IInvoiceProductService
         var itemToRemove = existingItems.FirstOrDefault(p => p.ProductId == productId)
             ?? throw new NotFoundException($"Item com produto {productId} não encontrado na nota fiscal.");
 
-        await AdjustProductInventoryAsync(productId, reservedStockDelta: -itemToRemove.Quantity);
-
         _context.InvoiceProducts.Remove(itemToRemove);
         existingItems.Remove(itemToRemove);
 
@@ -127,18 +114,24 @@ public class InvoiceProductService : IInvoiceProductService
         await transaction.CommitAsync();
     }
 
-    private static void EnsureProductAvailability(ProductApiResponse product, int quantityDelta)
+    private async Task EnsureProductAvailabilityAsync(ProductApiResponse product, Guid currentInvoiceId, int requestedQuantity)
     {
-        if (quantityDelta <= 0)
-        {
-            return;
-        }
+        var reservedInOtherOpenInvoices = await GetReservedQuantityForOpenInvoicesAsync(product.Id, currentInvoiceId);
+        var availableStock = product.Stock - reservedInOtherOpenInvoices;
 
-        var availableStock = product.Stock - product.ReservedStock;
-        if (quantityDelta > availableStock)
+        if (requestedQuantity > availableStock)
         {
             throw new ValidationException($"Produto {product.Id} sem estoque disponível. Disponível: {availableStock}.");
         }
+    }
+
+    private Task<int> GetReservedQuantityForOpenInvoicesAsync(Guid productId, Guid currentInvoiceId)
+    {
+        return _context.InvoiceProducts
+            .Where(ip => ip.ProductId == productId)
+            .Where(ip => ip.InvoiceId != currentInvoiceId)
+            .Where(ip => ip.Invoice.Status == InvoiceStatus.Open)
+            .SumAsync(ip => ip.Quantity);
     }
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
@@ -165,23 +158,6 @@ public class InvoiceProductService : IInvoiceProductService
             ?? throw new ValidationException("Resposta inválida da API de produtos.");
 
         return products.ToDictionary(p => p.Id);
-    }
-
-    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0, int reservedStockDelta = 0)
-    {
-        var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = new { StockDelta = stockDelta, ReservedStockDelta = reservedStockDelta };
-        var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            throw new NotFoundException($"Produto {productId} não encontrado.");
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new ValidationException($"Não foi possível atualizar o estoque do produto {productId}.");
-        }
     }
 
     private static void ValidateManageItemsRequest(ManageInvoiceItemsRequest request)
@@ -226,7 +202,6 @@ public class InvoiceProductService : IInvoiceProductService
     private sealed record ProductApiResponse(
         Guid Id,
         int Stock,
-        int ReservedStock,
         decimal Price
     );
 }

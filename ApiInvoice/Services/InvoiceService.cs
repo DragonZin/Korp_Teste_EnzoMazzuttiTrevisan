@@ -129,31 +129,32 @@ public class InvoiceService : IInvoiceService
         {
             var productIds = invoice.Products.Select(i => i.ProductId).Distinct().ToList();
             var productsById = await GetProductsByIdsAsync(productIds);
+            var totalQuantitiesByProduct = invoice.Products
+                .GroupBy(i => i.ProductId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-            foreach (var item in invoice.Products)
+            foreach (var productEntry in totalQuantitiesByProduct)
             {
-                if (!productsById.TryGetValue(item.ProductId, out var product))
+                if (!productsById.TryGetValue(productEntry.Key, out var product))
                 {
-                    throw new NotFoundException($"Produto {item.ProductId} não encontrado.");
+                    throw new NotFoundException($"Produto {productEntry.Key} não encontrado.");
                 }
 
-                if (product.ReservedStock < item.Quantity)
+                if (product.Stock < productEntry.Value)
                 {
-                    throw new ValidationException($"Estoque reservado inconsistente para o produto {item.ProductId}.");
+                    throw new ValidationException($"Estoque insuficiente para o produto {productEntry.Key}.");
                 }
+            }
 
-                if (product.Stock < item.Quantity)
-                {
-                    throw new ValidationException($"Estoque insuficiente para o produto {item.ProductId}.");
-                }
-
+            foreach (var productEntry in totalQuantitiesByProduct)
+            {
                 await AdjustProductInventoryAsync(
-                    item.ProductId,
-                    stockDelta: -item.Quantity,
-                    reservedStockDelta: -item.Quantity);
+                    productEntry.Key,
+                    stockDelta: -productEntry.Value);
             }
         }
 
+        invoice.TotalAmount = invoice.Products.Sum(p => p.TotalPrice);
         invoice.Status = InvoiceStatus.Closed;
         invoice.ClosedAt = DateTime.UtcNow;
 
@@ -201,10 +202,10 @@ public class InvoiceService : IInvoiceService
         return products.ToDictionary(p => p.Id);
     }
 
-    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0, int reservedStockDelta = 0)
+    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0)
     {
         var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = new { StockDelta = stockDelta, ReservedStockDelta = reservedStockDelta };
+        var payload = new { StockDelta = stockDelta };
         var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
@@ -275,7 +276,6 @@ public class InvoiceService : IInvoiceService
 
     private sealed record ProductApiResponse(
         Guid Id,
-        int Stock,
-        int ReservedStock
+        int Stock
     );
 }

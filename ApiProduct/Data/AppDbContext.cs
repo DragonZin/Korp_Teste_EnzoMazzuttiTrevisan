@@ -49,10 +49,6 @@ public class AppDbContext : DbContext, IIdempotencyDbContext
                 .HasColumnName("stock")
                 .IsRequired();
 
-            entity.Property(p => p.ReservedStock)
-                .HasColumnName("reserved_stock")
-                .IsRequired();
-
             entity.Property(p => p.Price)
                 .HasColumnName("price")
                 .HasColumnType("numeric(10,2)")

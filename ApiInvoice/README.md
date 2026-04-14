@@ -83,22 +83,21 @@ Body:
 - Inclusão de itens consulta a API de Produtos em lote (`POST /api/products/batch`).
 - `ProductId` duplicado no mesmo PATCH é inválido.
 - `Quantity` não pode ser negativa.
-- A inclusão/edição de itens em nota aberta passa a operar com **reserva de estoque** no Produto (`ReservedStock`).
-- O fechamento da nota reduz o `Stock` e reduz também o `ReservedStock` de cada item, consolidando a venda.
+- A disponibilidade de estoque é calculada sob demanda: `Stock - soma(Quantity em outras notas Open para o mesmo produto)`.
+- O fechamento da nota reduz apenas o `Stock` dos produtos da nota.
 
-## Fluxo de estoque reservado
+## Fluxo de estoque
 
 1. **PATCH /items**:
-   - calcula delta de quantidade por item;
-   - valida disponibilidade com base em `Stock - ReservedStock`;
-   - atualiza `ReservedStock` no produto.
+   - valida disponibilidade consultando notas abertas no banco da ApiInvoice;
+   - cria/atualiza itens da nota sem persistir reserva agregada no produto.
 2. **DELETE item**:
    - remove o item da nota;
-   - devolve a quantidade removida para o disponível (reduzindo `ReservedStock`).
+   - não aciona atualização de estoque na API de produtos.
 3. **PUT /close**:
-   - valida consistência (`ReservedStock` e `Stock` suficientes);
+   - valida consistência de `Stock` para os itens da nota;
    - baixa estoque físico (`Stock`);
-   - libera reserva correspondente (`ReservedStock`).
+   - marca nota como `Closed` e preenche `ClosedAt`.
 
 ## Executar localmente (sem Docker)
 
