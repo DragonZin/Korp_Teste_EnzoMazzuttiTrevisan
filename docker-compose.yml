@@ -1,5 +1,4 @@
 services:
-
   postgres-produtos:
     image: postgres:16
     container_name: db_produtos
@@ -11,6 +10,11 @@ services:
       - "5433:5432"
     volumes:
       - postgres_produtos_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U produtos -d produtos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres-nota_fiscal:
     image: postgres:16
@@ -23,6 +27,53 @@ services:
       - "5434:5432"
     volumes:
       - postgres_nota_fiscal_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nota_fiscal -d nota_fiscal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-product:
+    build:
+      context: .
+      dockerfile: ApiProduct/Dockerfile
+    container_name: api_product
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres-produtos;Port=5432;Database=produtos;Username=produtos;Password=produtos
+    depends_on:
+      postgres-produtos:
+        condition: service_healthy
+    ports:
+      - "5242:8080"
+
+  api-invoice:
+    build:
+      context: .
+      dockerfile: ApiInvoice/Dockerfile
+    container_name: api_invoice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres-nota_fiscal;Port=5432;Database=nota_fiscal;Username=nota_fiscal;Password=nota_fiscal
+      ProductApi__BaseUrl: http://api-product:8080/
+    depends_on:
+      postgres-nota_fiscal:
+        condition: service_healthy
+      api-product:
+        condition: service_started
+    ports:
+      - "5009:8080"
+
+  api-gateway:
+    image: nginx:1.27-alpine
+    container_name: api_gateway
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-product
+      - api-invoice
+    ports:
+      - "8080:8080"
 
 volumes:
   postgres_produtos_data:
