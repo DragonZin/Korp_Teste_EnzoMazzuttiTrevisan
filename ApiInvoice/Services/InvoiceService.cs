@@ -147,10 +147,10 @@ public class InvoiceService : IInvoiceService
                     throw new ValidationException($"Estoque insuficiente para o produto {item.ProductId}.");
                 }
 
-                await UpdateProductStockAsync(
+                await AdjustProductInventoryAsync(
                     item.ProductId,
-                    stock: product.Stock - item.Quantity,
-                    reservedStock: product.ReservedStock - item.Quantity);
+                    stockDelta: -item.Quantity,
+                    reservedStockDelta: -item.Quantity);
             }
         }
 
@@ -201,11 +201,11 @@ public class InvoiceService : IInvoiceService
         return products.ToDictionary(p => p.Id);
     }
 
-    private async Task UpdateProductStockAsync(Guid productId, int? stock = null, int? reservedStock = null)
+    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0, int reservedStockDelta = 0)
     {
         var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = new { Stock = stock, ReservedStock = reservedStock };
-        var response = await client.PutAsJsonAsync($"api/products/{productId}", payload);
+        var payload = new { StockDelta = stockDelta, ReservedStockDelta = reservedStockDelta };
+        var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {

@@ -64,6 +64,14 @@ public class ProductsController : ControllerBase
         return Ok(product);
     }
 
+    [HttpPut("internal/{id:guid}/inventory")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<ProductResponse>> AdjustInventory(Guid id, AdjustProductInventoryRequest request)
+    {
+        var product = await _productService.AdjustInventoryAsync(id, request);
+        return Ok(product);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {

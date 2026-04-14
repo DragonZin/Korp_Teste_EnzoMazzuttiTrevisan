@@ -63,8 +63,8 @@ public class InvoiceProductService : IInvoiceProductService
 
             if (quantityDelta != 0)
             {
-                await UpdateProductStockAsync(product.Id, reservedStock: product.ReservedStock + quantityDelta);
-            }
+                await AdjustProductInventoryAsync(product.Id, reservedStockDelta: quantityDelta);
+        }
 
             if (existingItem is not null)
             {
@@ -116,15 +116,7 @@ public class InvoiceProductService : IInvoiceProductService
         var itemToRemove = existingItems.FirstOrDefault(p => p.ProductId == productId)
             ?? throw new NotFoundException($"Item com produto {productId} não encontrado na nota fiscal.");
 
-        var product = await GetProductByIdAsync(productId);
-        var resultingReservedStock = product.ReservedStock - itemToRemove.Quantity;
-
-        if (resultingReservedStock < 0)
-        {
-            throw new ValidationException($"Estoque reservado inválido para o produto {productId}.");
-        }
-
-        await UpdateProductStockAsync(productId, reservedStock: resultingReservedStock);
+        await AdjustProductInventoryAsync(productId, reservedStockDelta: -itemToRemove.Quantity);
 
         _context.InvoiceProducts.Remove(itemToRemove);
         existingItems.Remove(itemToRemove);
@@ -175,23 +167,11 @@ public class InvoiceProductService : IInvoiceProductService
         return products.ToDictionary(p => p.Id);
     }
 
-    private async Task<ProductApiResponse> GetProductByIdAsync(Guid productId)
-    {
-        var productsById = await GetProductsByIdsAsync([productId]);
-
-        if (!productsById.TryGetValue(productId, out var product))
-        {
-            throw new NotFoundException($"Produto {productId} não encontrado.");
-        }
-
-        return product;
-    }
-
-    private async Task UpdateProductStockAsync(Guid productId, int? stock = null, int? reservedStock = null)
+    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0, int reservedStockDelta = 0)
     {
         var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = new { Stock = stock, ReservedStock = reservedStock };
-        var response = await client.PutAsJsonAsync($"api/products/{productId}", payload);
+        var payload = new { StockDelta = stockDelta, ReservedStockDelta = reservedStockDelta };
+        var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {

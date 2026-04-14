@@ -37,7 +37,13 @@ public class ProductService : IProductService
             .OrderBy(p => p.Name)
             .Skip((normalizedPage - 1) * normalizedPageSize)
             .Take(normalizedPageSize)
-            .Select(p => ToResponse(p))
+            .Select(p => new ProductResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Stock,
+                p.ReservedStock,
+                p.Price))
             .ToListAsync();
 
         return new PagedResponse<ProductResponse>(
@@ -54,7 +60,13 @@ public class ProductService : IProductService
         var product = await _context.Products
             .AsNoTracking()
             .Where(p => p.Id == id)
-            .Select(p => ToResponse(p))
+            .Select(p => new ProductResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Stock,
+                p.ReservedStock,
+                p.Price))
             .FirstOrDefaultAsync();
 
         return product ?? throw new NotFoundException("Produto não encontrado.");
@@ -78,14 +90,20 @@ public class ProductService : IProductService
             .AsNoTracking()
             .Where(p => uniqueIds.Contains(p.Id))
             .OrderBy(p => p.Name)
-            .Select(p => ToResponse(p))
+            .Select(p => new ProductResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Stock,
+                p.ReservedStock,
+                p.Price))
             .ToListAsync();
     }
 
     public async Task<ProductResponse> CreateProductAsync(CreateProductRequest request)
     {
-        ValidateRequest(request.Code, request.Name, request.Stock, request.ReservedStock, request.Price);
-        
+        ValidateCreateRequest(request);
+
         var code = request.Code.Trim();
         var name = request.Name.Trim();
 
@@ -103,20 +121,17 @@ public class ProductService : IProductService
             Code = code,
             Name = name,
             Stock = request.Stock,
+            ReservedStock = 0,
             Price = request.Price,
             IsDeleted = false
         };
+        
+        ValidateStockConsistency(product.Stock, product.ReservedStock);
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
-        return new ProductResponse(
-            product.Id,
-            product.Code,
-            product.Name,
-            product.Stock,
-            product.Price
-        );
+        return ToResponse(product);
     }
 
     public async Task<ProductResponse> UpdateProductAsync(Guid id, UpdateProductRequest request)
@@ -157,15 +172,32 @@ public class ProductService : IProductService
             product.Price = request.Price.Value;
         }
 
+        ValidateStockConsistency(product.Stock, product.ReservedStock);
+
         await _context.SaveChangesAsync();
 
-        return new ProductResponse(
-            product.Id,
-            product.Code,
-            product.Name,
-            product.Stock,
-            product.Price
-        );
+        return ToResponse(product);
+    }
+
+    public async Task<ProductResponse> AdjustInventoryAsync(Guid id, AdjustProductInventoryRequest request)
+    {
+        if (request is null)
+        {
+            throw new ValidationException("O corpo da requisição é obrigatório.");
+        }
+
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            ?? throw new NotFoundException("Produto não encontrado.");
+
+        product.Stock += request.StockDelta;
+        product.ReservedStock += request.ReservedStockDelta;
+
+        ValidateStockConsistency(product.Stock, product.ReservedStock);
+
+        await _context.SaveChangesAsync();
+
+        return ToResponse(product);
     }
 
     public async Task DeleteProductAsync(Guid id)
@@ -178,34 +210,31 @@ public class ProductService : IProductService
         await _context.SaveChangesAsync();
     }
 
-    private static void ValidateRequest(string code, string name, int stock, decimal price)
+    private static ProductResponse ToResponse(Product product)
+        => new(
+            product.Id,
+            product.Code,
+            product.Name,
+            product.Stock,
+            product.ReservedStock,
+            product.Price);
+
+    private static void ValidateCreateRequest(CreateProductRequest request)
     {
-        if (string.IsNullOrWhiteSpace(code))
+        if (request is null)
         {
-            throw new ValidationException("Código é obrigatório.");
+            throw new ValidationException("O corpo da requisição é obrigatório.");
         }
 
-        if (code.Trim().Length > 50)
-        {
-            throw new ValidationException("Código deve ter no máximo 50 caracteres.");
-        }
+        ValidateCode(request.Code);
+        ValidateName(request.Name);
 
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ValidationException("Nome é obrigatório.");
-        }
-
-        if (name.Trim().Length > 255)
-        {
-            throw new ValidationException("Nome deve ter no máximo 255 caracteres.");
-        }
-
-        if (stock < 0)
+        if (request.Stock < 0)
         {
             throw new ValidationException("Estoque não pode ser negativo.");
         }
 
-        if (price < 0)
+        if (request.Price < 0)
         {
             throw new ValidationException("Preço não pode ser negativo.");
         }
@@ -213,6 +242,11 @@ public class ProductService : IProductService
 
     private static void ValidateUpdateRequest(UpdateProductRequest request)
     {
+        if (request is null)
+        {
+            throw new ValidationException("O corpo da requisição é obrigatório.");
+        }
+
         var hasAnyFieldToUpdate =
             request.Code is not null ||
             request.Name is not null ||
@@ -226,28 +260,12 @@ public class ProductService : IProductService
 
         if (request.Code is not null)
         {
-            if (string.IsNullOrWhiteSpace(request.Code))
-            {
-                throw new ValidationException("Código é obrigatório.");
-            }
-
-            if (request.Code.Trim().Length > 50)
-            {
-                throw new ValidationException("Código deve ter no máximo 50 caracteres.");
-            }
+            ValidateCode(request.Code);
         }
 
         if (request.Name is not null)
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
-            {
-                throw new ValidationException("Nome é obrigatório.");
-            }
-
-            if (request.Name.Trim().Length > 255)
-            {
-                throw new ValidationException("Nome deve ter no máximo 255 caracteres.");
-            }
+            ValidateName(request.Name);
         }
 
         if (request.Stock.HasValue && request.Stock.Value < 0)
@@ -258,6 +276,50 @@ public class ProductService : IProductService
         if (request.Price.HasValue && request.Price.Value < 0)
         {
             throw new ValidationException("Preço não pode ser negativo.");
+        }
+    }
+
+    private static void ValidateCode(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new ValidationException("Código é obrigatório.");
+        }
+
+        if (code.Trim().Length > 50)
+        {
+            throw new ValidationException("Código deve ter no máximo 50 caracteres.");
+        }
+    }
+
+    private static void ValidateName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ValidationException("Nome é obrigatório.");
+        }
+
+        if (name.Trim().Length > 255)
+        {
+            throw new ValidationException("Nome deve ter no máximo 255 caracteres.");
+        }
+    }
+
+    private static void ValidateStockConsistency(int stock, int reservedStock)
+    {
+        if (stock < 0)
+        {
+            throw new ValidationException("Estoque não pode ser negativo.");
+        }
+
+        if (reservedStock < 0)
+        {
+            throw new ValidationException("Estoque reservado não pode ser negativo.");
+        }
+
+        if (reservedStock > stock)
+        {
+            throw new ValidationException("Estoque reservado não pode ser maior que o estoque total.");
         }
     }
 }

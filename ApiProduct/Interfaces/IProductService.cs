@@ -10,5 +10,6 @@ public interface IProductService
     Task<IReadOnlyCollection<ProductResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> ids);
     Task<ProductResponse> CreateProductAsync(CreateProductRequest request);
     Task<ProductResponse> UpdateProductAsync(Guid id, UpdateProductRequest request);
+    Task<ProductResponse> AdjustInventoryAsync(Guid id, AdjustProductInventoryRequest request);
     Task DeleteProductAsync(Guid id);
 }
