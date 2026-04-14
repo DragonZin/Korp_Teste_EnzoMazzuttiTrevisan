@@ -10,7 +10,7 @@ public interface IInvoiceService
     Task<InvoiceResponse> GetInvoiceByIdAsync(Guid id);
     Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request);
     Task<InvoiceResponse> UpdateInvoiceAsync(Guid id, UpdateInvoiceRequest request);
-    Task<InvoiceResponse> ManageInvoiceItemAsync(Guid id, ManageInvoiceItemRequest request);
+    Task<InvoiceResponse> ManageInvoiceItemsAsync(Guid id, ManageInvoiceItemsRequest request);
     Task<InvoiceResponse> CloseInvoiceAsync(Guid id);
     Task DeleteInvoiceAsync(Guid id);
 }

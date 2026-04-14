@@ -14,7 +14,7 @@ public class InvoiceService : IInvoiceService
 {
     private const int MaxPageSize = 100;
     private readonly AppDbContext _context;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IHttpClientFactory? _httpClientFactory;
 
     public InvoiceService(AppDbContext context, IHttpClientFactory httpClientFactory)
     {
@@ -120,9 +120,9 @@ public class InvoiceService : IInvoiceService
         return await GetInvoiceByIdAsync(invoice.Id);
     }
 
-        public async Task<InvoiceResponse> ManageInvoiceItemAsync(Guid id, ManageInvoiceItemRequest request)
+    public async Task<InvoiceResponse> ManageInvoiceItemsAsync(Guid id, ManageInvoiceItemsRequest request)
     {
-        ValidateManageItemRequest(request);
+        ValidateManageItemsRequest(request);
 
         var invoice = await _context.Invoices
             .Include(i => i.Products)
@@ -131,33 +131,47 @@ public class InvoiceService : IInvoiceService
 
         EnsureInvoiceIsOpen(invoice);
 
-        var existingItem = invoice.Products.FirstOrDefault(p => p.ProductId == request.ProductId);
+        var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
+        var idsToLoad = requestByProductId.Keys
+            .Where(productId => invoice.Products.All(i => i.ProductId != productId) && requestByProductId[productId].Quantity > 0)
+            .ToList();
 
-        if (request.Quantity == 0)
+        var productsById = await GetProductsByIdsAsync(idsToLoad);
+
+        foreach (var itemRequest in request.Products)
         {
-            if (existingItem is null)
+            var existingItem = invoice.Products.FirstOrDefault(p => p.ProductId == itemRequest.ProductId);
+
+            if (itemRequest.Quantity == 0)
             {
-                throw new NotFoundException("Item não encontrado na nota fiscal.");
+                if (existingItem is null)
+                {
+                    throw new NotFoundException($"Item com produto {itemRequest.ProductId} não encontrado na nota fiscal.");
+                }
+
+                invoice.Products.Remove(existingItem);
+                continue;
             }
 
-            invoice.Products.Remove(existingItem);
-        }
-        else if (existingItem is not null)
-        {
-            existingItem.Quantity = request.Quantity;
-        }
-        else
-        {
-            var product = await GetProductByIdAsync(request.ProductId);
+            if (existingItem is not null)
+            {
+                existingItem.Quantity = itemRequest.Quantity;
+                continue;
+            }
+
+            if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
+            {
+                throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
+            }
 
             invoice.Products.Add(new InvoiceProduct
             {
                 Id = Guid.NewGuid(),
-                ProductId = request.ProductId,
+                ProductId = itemRequest.ProductId,
                 ProductCode = product.Code,
                 ProductName = product.Name,
                 UnitPrice = product.Price,
-                Quantity = request.Quantity
+                Quantity = itemRequest.Quantity
             });
         }
 
@@ -194,6 +208,41 @@ public class InvoiceService : IInvoiceService
 
         _context.Invoices.Remove(invoice);
         await _context.SaveChangesAsync();
+    }
+    private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
+    {
+        if (productIds.Count == 0)
+        {
+            return new Dictionary<Guid, ProductApiResponse>();
+        }
+
+        if (_httpClientFactory is null)
+        {
+            throw new InvalidOperationException("IHttpClientFactory não configurado para consultar produtos.");
+        }
+
+        var client = _httpClientFactory.CreateClient("ProductApi");
+        var response = await client.PostAsJsonAsync("api/products/batch", new { Ids = productIds });
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Um ou mais produtos não foram encontrados.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException("Não foi possível consultar os produtos na API de produtos.");
+        }
+
+        var products = await response.Content.ReadFromJsonAsync<List<ProductApiResponse>>()
+            ?? throw new ValidationException("Resposta inválida da API de produtos.");
+
+        return products.ToDictionary(p => p.Id);
+    }
+
+    private static void RecalculateInvoiceTotal(Invoice invoice)
+    {
+        invoice.TotalAmount = invoice.Products.Sum(p => p.TotalPrice);
     }
 
     private static InvoiceResponse MapResponse(Invoice invoice)
@@ -331,6 +380,37 @@ public class InvoiceService : IInvoiceService
             }
         }
     }
+    
+    private static void ValidateManageItemsRequest(ManageInvoiceItemsRequest request)
+    {
+        if (request is null)
+        {
+            throw new ValidationException("O corpo da requisição é obrigatório.");
+        }
+
+        if (request.Products is null || request.Products.Count == 0)
+        {
+            throw new ValidationException("Informe ao menos um produto para gerenciar na nota fiscal.");
+        }
+
+        if (request.Products.GroupBy(p => p.ProductId).Any(g => g.Count() > 1))
+        {
+            throw new ValidationException("Não é permitido repetir o mesmo ProductId na mesma requisição.");
+        }
+
+        foreach (var item in request.Products)
+        {
+            if (item.ProductId == Guid.Empty)
+            {
+                throw new ValidationException("ProductId é obrigatório.");
+            }
+
+            if (item.Quantity < 0)
+            {
+                throw new ValidationException("Quantity não pode ser negativo.");
+            }
+        }
+    }
 
     private static void EnsureInvoiceIsOpen(Invoice invoice)
     {
@@ -339,4 +419,12 @@ public class InvoiceService : IInvoiceService
             throw new ValidationException("Nota fiscal fechada não pode ser alterada.");
         }
     }
+
+    private sealed record ProductApiResponse(
+        Guid Id,
+        string Code,
+        string Name,
+        int Stock,
+        decimal Price
+    );
 }

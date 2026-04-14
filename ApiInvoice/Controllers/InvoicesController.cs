@@ -49,12 +49,12 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPut("{id:guid}/items")]
-    public async Task<ActionResult<InvoiceResponse>> ManageInvoiceItem(Guid id, [FromBody] ManageInvoiceItemRequest request)
+    public async Task<ActionResult<InvoiceResponse>> ManageInvoiceItems(Guid id, [FromBody] ManageInvoiceItemsRequest request)
     {
-        var invoice = await _invoiceService.ManageInvoiceItemAsync(id, request);
+        var invoice = await _invoiceService.ManageInvoiceItemsAsync(id, request);
         return Ok(invoice);
     }
-
+    
     [HttpPut("{id:guid}/close")]
     public async Task<ActionResult<InvoiceResponse>> CloseInvoice(Guid id)
     {
