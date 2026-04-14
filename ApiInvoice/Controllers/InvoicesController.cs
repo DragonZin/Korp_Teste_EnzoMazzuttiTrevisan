@@ -50,11 +50,18 @@ public class InvoicesController : ControllerBase
         return Ok(invoice);
     }
 
-    [HttpPut("{id:guid}/items")]
-    public async Task<ActionResult<InvoiceResponse>> ManageInvoiceItems(Guid id, [FromBody] ManageInvoiceItemsRequest request)
+    [HttpPatch("{id:guid}/items")]
+    public async Task<ActionResult<InvoiceResponse>> UpsertInvoiceItems(Guid id, [FromBody] ManageInvoiceItemsRequest request)
     {
-        var invoice = await _invoiceProductService.ManageInvoiceItemsAsync(id, request);
+        var invoice = await _invoiceProductService.UpsertInvoiceItemsAsync(id, request);
         return Ok(invoice);
+    }
+
+    [HttpDelete("{invoiceId:guid}/product/{productId:guid}")]
+    public async Task<IActionResult> DeleteInvoiceItem(Guid invoiceId, Guid productId)
+    {
+        await _invoiceProductService.RemoveInvoiceItemAsync(invoiceId, productId);
+        return NoContent();
     }
     
     [HttpPut("{id:guid}/close")]

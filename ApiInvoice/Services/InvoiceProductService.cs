@@ -23,58 +23,35 @@ public class InvoiceProductService : IInvoiceProductService
         _invoiceService = invoiceService;
     }
 
-    public async Task<InvoiceResponse> ManageInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request)
+    public async Task<InvoiceResponse> UpsertInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request)
     {
         ValidateManageItemsRequest(request);
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var invoice = await _context.Invoices
-            .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == invoiceId)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
         EnsureInvoiceIsOpen(invoice);
 
-        var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
         var existingItems = await _context.InvoiceProducts
-            .AsNoTracking()
             .Where(p => p.InvoiceId == invoiceId)
-            .ToDictionaryAsync(p => p.ProductId);
+            .ToListAsync();
 
-        var idsToLoad = requestByProductId.Keys
-            .Where(productId => !existingItems.ContainsKey(productId) && requestByProductId[productId].Quantity > 0)
+        var existingItemsByProductId = existingItems.ToDictionary(p => p.ProductId);
+        var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
+        var missingProductIds = requestByProductId.Keys
+            .Where(productId => !existingItemsByProductId.ContainsKey(productId))
             .ToList();
 
-        var productsById = await GetProductsByIdsAsync(idsToLoad);
-        var newItems = new List<InvoiceProduct>();
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var productsById = await GetProductsByIdsAsync(missingProductIds);
 
         foreach (var itemRequest in request.Products)
         {
-            var existsInInvoice = existingItems.TryGetValue(itemRequest.ProductId, out _);
-
-            if (itemRequest.Quantity == 0)
+            if (existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem))
             {
-                if (!existsInInvoice)
-                {
-                    throw new NotFoundException($"Item com produto {itemRequest.ProductId} não encontrado na nota fiscal.");
-                }
-
-                await _context.InvoiceProducts
-                    .Where(p => p.InvoiceId == invoiceId && p.ProductId == itemRequest.ProductId)
-                    .ExecuteDeleteAsync();
-
-                existingItems.Remove(itemRequest.ProductId);
-                continue;
-            }
-
-            if (existsInInvoice)
-            {
-                await _context.InvoiceProducts
-                    .Where(p => p.InvoiceId == invoiceId && p.ProductId == itemRequest.ProductId)
-                    .ExecuteUpdateAsync(setters => setters
-                        .SetProperty(p => p.Quantity, itemRequest.Quantity));
-
+                existingItem.Quantity = itemRequest.Quantity;
                 continue;
             }
 
@@ -83,37 +60,57 @@ public class InvoiceProductService : IInvoiceProductService
                 throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
             }
 
-            newItems.Add(new InvoiceProduct
+            var newItem = new InvoiceProduct
             {
                 Id = Guid.NewGuid(),
                 InvoiceId = invoiceId,
                 ProductId = itemRequest.ProductId,
                 UnitPrice = product.Price,
                 Quantity = itemRequest.Quantity
-            });
+            };
+
+            _context.InvoiceProducts.Add(newItem);
+            existingItems.Add(newItem);
+            existingItemsByProductId[itemRequest.ProductId] = newItem;
         }
 
-        if (newItems.Count > 0)
-        {
-            _context.InvoiceProducts.AddRange(newItems);
-            await _context.SaveChangesAsync();
-        }
+        invoice.TotalAmount = existingItems.Sum(p => p.TotalPrice);
 
-        var updatedTotal = await _context.InvoiceProducts
-            .Where(p => p.InvoiceId == invoiceId)
-            .Select(p => p.Quantity * p.UnitPrice)
-            .DefaultIfEmpty(0m)
-            .SumAsync();
-
-        await _context.Invoices
-            .Where(i => i.Id == invoiceId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(i => i.TotalAmount, updatedTotal)
-                .SetProperty(i => i.UpdatedAt, DateTime.UtcNow));
-
+        await _context.SaveChangesAsync();
         await transaction.CommitAsync();
 
         return await _invoiceService.GetInvoiceByIdAsync(invoiceId);
+    }
+
+    public async Task RemoveInvoiceItemAsync(Guid invoiceId, Guid productId)
+    {
+        if (productId == Guid.Empty)
+        {
+            throw new ValidationException("ProductId é obrigatório.");
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var invoice = await _context.Invoices
+            .FirstOrDefaultAsync(i => i.Id == invoiceId)
+            ?? throw new NotFoundException("Nota fiscal não encontrada.");
+
+        EnsureInvoiceIsOpen(invoice);
+
+        var existingItems = await _context.InvoiceProducts
+            .Where(p => p.InvoiceId == invoiceId)
+            .ToListAsync();
+
+        var itemToRemove = existingItems.FirstOrDefault(p => p.ProductId == productId)
+            ?? throw new NotFoundException($"Item com produto {productId} não encontrado na nota fiscal.");
+
+        _context.InvoiceProducts.Remove(itemToRemove);
+        existingItems.Remove(itemToRemove);
+
+        invoice.TotalAmount = existingItems.Sum(p => p.TotalPrice);
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)

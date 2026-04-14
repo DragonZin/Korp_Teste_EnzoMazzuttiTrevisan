@@ -1,0 +1,23 @@
+@ApiInvoice_HostAddress = http://localhost:5009
+@invoice_id = 2d7d9213-d3ea-4ab5-90b4-22e7de26dee2
+@product_id = 9716b6ae-f6bc-4ef1-82de-83dff34e14a7
+
+### Adicionar produtos na nota fiscal
+PATCH {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}/items
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "productId": "{{product_id}}",
+      "quantity": 2
+    },
+    {
+      "productId": "11bd7bcf-000d-4088-b4d6-18bacbc76f53",
+      "quantity": 1
+    }
+  ]
+}
+
+### Excluir produto da nota fiscal
+DELETE {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}/product/{{product_id}}
