@@ -5,10 +5,10 @@ Microserviço responsável pelo cadastro e consulta de produtos.
 ## Base URL
 
 - Local (dotnet run): `http://localhost:5242`
-- Docker Compose (acesso direto): `http://localhost:5242`
-- Via API Gateway: `http://localhost:8080/products`
+- Docker Compose: **acesso externo somente via gateway** `http://localhost:8080`
+- Via API Gateway: `http://localhost:8080`
 
-> Observação: no gateway, as rotas da API ficam sob o prefixo `/products`.
+> Observação: no gateway, use o prefixo direto da API: `/api/products`.
 
 ## Rotas
 

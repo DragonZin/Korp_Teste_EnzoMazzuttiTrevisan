@@ -11,7 +11,7 @@ Também inclui um **API Gateway (NGINX)** para centralizar o acesso.
 
 - `ApiProduct/` → microserviço de produtos.
 - `ApiInvoice/` → microserviço de notas fiscais.
-- `gateway/nginx.conf` → roteamento do gateway.
+- `Gateway/nginx.conf` → roteamento do gateway.
 - `docker-compose.yml` → orquestra bancos, APIs e gateway.
 
 ## Pré-requisitos
@@ -28,19 +28,18 @@ docker compose up --build -d
 Serviços publicados:
 
 - Gateway: `http://localhost:8080`
-- API Produtos (direto): `http://localhost:5242`
-- API Nota Fiscal (direto): `http://localhost:5009`
+- API Produtos e API Nota Fiscal: **acesso externo somente via gateway**.
 - PostgreSQL Produtos: `localhost:5433`
 - PostgreSQL Nota Fiscal: `localhost:5434`
 
 ## URLs via API Gateway
 
+- Gateway
+  - `http://localhost:8080/health`
 - Produtos
-  - `http://localhost:8080/products/health`
-  - `http://localhost:8080/products/api/products`
+  - `http://localhost:8080/api/products/health`
 - Nota Fiscal
-  - `http://localhost:8080/invoices/health`
-  - `http://localhost:8080/invoices/api/invoices`
+  - `http://localhost:8080/api/invoices/health`
 
 ## Rodar localmente sem Docker (APIs)
 

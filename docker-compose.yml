@@ -45,7 +45,7 @@ services:
       postgres-produtos:
         condition: service_healthy
     ports:
-      - "5242:8080"
+      - "8080"
 
   api-invoice:
     build:
@@ -62,13 +62,13 @@ services:
       api-product:
         condition: service_started
     ports:
-      - "5009:8080"
+      - "8080"
 
   api-gateway:
     image: nginx:1.27-alpine
     container_name: api_gateway
     volumes:
-      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./Gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - api-product
       - api-invoice

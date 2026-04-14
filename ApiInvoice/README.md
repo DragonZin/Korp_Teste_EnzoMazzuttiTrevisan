@@ -5,10 +5,10 @@ Microserviço responsável pela criação, manutenção e fechamento de notas fi
 ## Base URL
 
 - Local (dotnet run): `http://localhost:5009`
-- Docker Compose (acesso direto): `http://localhost:5009`
-- Via API Gateway: `http://localhost:8080/invoices`
+- Docker Compose: **acesso externo somente via gateway** `http://localhost:8080`
+- Via API Gateway: `http://localhost:8080`
 
-> Observação: no gateway, as rotas da API ficam sob o prefixo `/invoices`.
+> Observação: no gateway, use o prefixo direto da API: `/api/invoices`.
 
 ## Rotas
 
