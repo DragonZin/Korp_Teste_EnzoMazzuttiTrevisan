@@ -2,6 +2,9 @@
 @invoice_id = 714a9cd6-f81a-4d94-aca4-01ba28b7b4f0
 @page = 1
 @pageSize = 100
+### Health check
+GET {{ApiInvoice_HostAddress}}/health
+
 ### Listar notas fiscais
 GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}
 Accept: application/json

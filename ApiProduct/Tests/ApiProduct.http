@@ -2,6 +2,9 @@
 @productId = b015533d-042e-4c47-b816-1880a459fc03
 @page = 1
 @pageSize = 10
+### Health check
+GET {{ApiProduto_HostAddress}}/health
+
 ### Listar produtos ativos (paginado)
 GET {{ApiProduto_HostAddress}}/api/products?page={{page}}&pageSize={{pageSize}}
 Accept: application/json

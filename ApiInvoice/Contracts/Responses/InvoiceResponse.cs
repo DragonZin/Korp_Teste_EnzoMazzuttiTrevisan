@@ -10,5 +10,6 @@ public record InvoiceResponse(
     string CustomerName,
     string CustomerDocument,
     DateTime CreatedAt,
+    DateTime? ClosedAt,
     IReadOnlyCollection<InvoiceItemResponse> Products
 );

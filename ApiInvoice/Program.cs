@@ -54,6 +54,23 @@ var app = builder.Build();
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+
+app.MapGet("/health", async (AppDbContext dbContext, CancellationToken cancellationToken) =>
+{
+    var databaseOnline = await dbContext.Database.CanConnectAsync(cancellationToken);
+
+    var response = new
+    {
+        status = databaseOnline ? "ok" : "degraded",
+        databaseOnline,
+        timestamp = DateTime.UtcNow
+    };
+
+    return databaseOnline
+        ? Results.Ok(response)
+        : Results.Json(response, statusCode: StatusCodes.Status503ServiceUnavailable);
+});
+
 app.MapControllers();
 
 app.Run();
