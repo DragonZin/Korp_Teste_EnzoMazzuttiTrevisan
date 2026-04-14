@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiInvoice", "ApiInvoice\ApiInvoice.csproj", "{989B777D-F908-3100-ED1D-F3E87009F92D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiProduct", "ApiProduct\ApiProduct.csproj", "{194A6200-4975-4744-8095-FD5AF27F846B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{989B777D-F908-3100-ED1D-F3E87009F92D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{989B777D-F908-3100-ED1D-F3E87009F92D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{989B777D-F908-3100-ED1D-F3E87009F92D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{989B777D-F908-3100-ED1D-F3E87009F92D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{194A6200-4975-4744-8095-FD5AF27F846B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{194A6200-4975-4744-8095-FD5AF27F846B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{194A6200-4975-4744-8095-FD5AF27F846B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{194A6200-4975-4744-8095-FD5AF27F846B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8D72BF5D-860F-4A04-BE3D-B7D33854B64D}
+	EndGlobalSection
+EndGlobal

@@ -26,75 +26,94 @@ public class InvoiceProductService : IInvoiceProductService
     public async Task<InvoiceResponse> ManageInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request)
     {
         ValidateManageItemsRequest(request);
-        const int maxAttempts = 2;
 
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        var invoice = await _context.Invoices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == invoiceId)
+            ?? throw new NotFoundException("Nota fiscal não encontrada.");
+
+        EnsureInvoiceIsOpen(invoice);
+
+        var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
+        var existingItems = await _context.InvoiceProducts
+            .AsNoTracking()
+            .Where(p => p.InvoiceId == invoiceId)
+            .ToDictionaryAsync(p => p.ProductId);
+
+        var idsToLoad = requestByProductId.Keys
+            .Where(productId => !existingItems.ContainsKey(productId) && requestByProductId[productId].Quantity > 0)
+            .ToList();
+
+        var productsById = await GetProductsByIdsAsync(idsToLoad);
+        var newItems = new List<InvoiceProduct>();
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        foreach (var itemRequest in request.Products)
         {
-            var invoice = await _context.Invoices
-                .Include(i => i.Products)
-                .FirstOrDefaultAsync(i => i.Id == invoiceId)
-                ?? throw new NotFoundException("Nota fiscal não encontrada.");
+            var existsInInvoice = existingItems.TryGetValue(itemRequest.ProductId, out _);
 
-            EnsureInvoiceIsOpen(invoice);
-
-            var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
-            var idsToLoad = requestByProductId.Keys
-                .Where(productId => invoice.Products.All(i => i.ProductId != productId) && requestByProductId[productId].Quantity > 0)
-                .ToList();
-
-            var productsById = await GetProductsByIdsAsync(idsToLoad);
-
-            foreach (var itemRequest in request.Products)
+            if (itemRequest.Quantity == 0)
             {
-                var existingItem = invoice.Products.FirstOrDefault(p => p.ProductId == itemRequest.ProductId);
-
-                if (itemRequest.Quantity == 0)
+                if (!existsInInvoice)
                 {
-                    if (existingItem is null)
-                    {
-                        throw new NotFoundException($"Item com produto {itemRequest.ProductId} não encontrado na nota fiscal.");
-                    }
-
-                    invoice.Products.Remove(existingItem);
-                    continue;
+                    throw new NotFoundException($"Item com produto {itemRequest.ProductId} não encontrado na nota fiscal.");
                 }
 
-                if (existingItem is not null)
-                {
-                    existingItem.Quantity = itemRequest.Quantity;
-                    continue;
-                }
+                await _context.InvoiceProducts
+                    .Where(p => p.InvoiceId == invoiceId && p.ProductId == itemRequest.ProductId)
+                    .ExecuteDeleteAsync();
 
-                if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
-                {
-                    throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
-                }
-
-                invoice.Products.Add(new InvoiceProduct
-                {
-                    Id = Guid.NewGuid(),
-                    ProductId = itemRequest.ProductId,
-                    ProductCode = product.Code,
-                    ProductName = product.Name,
-                    UnitPrice = product.Price,
-                    Quantity = itemRequest.Quantity
-                });
+                existingItems.Remove(itemRequest.ProductId);
+                continue;
             }
 
-            RecalculateInvoiceTotal(invoice);
-
-            try
+            if (existsInInvoice)
             {
-                await _context.SaveChangesAsync();
-                return await _invoiceService.GetInvoiceByIdAsync(invoice.Id);
+                await _context.InvoiceProducts
+                    .Where(p => p.InvoiceId == invoiceId && p.ProductId == itemRequest.ProductId)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(p => p.Quantity, itemRequest.Quantity));
+
+                continue;
             }
-            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
+
+            if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
             {
-                _context.ChangeTracker.Clear();
+                throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
             }
+
+            newItems.Add(new InvoiceProduct
+            {
+                Id = Guid.NewGuid(),
+                InvoiceId = invoiceId,
+                ProductId = itemRequest.ProductId,
+                UnitPrice = product.Price,
+                Quantity = itemRequest.Quantity
+            });
         }
 
-        throw new ValidationException("A nota fiscal foi alterada por outro processo. Atualize os dados e tente novamente.");
+        if (newItems.Count > 0)
+        {
+            _context.InvoiceProducts.AddRange(newItems);
+            await _context.SaveChangesAsync();
+        }
+
+        var updatedTotal = await _context.InvoiceProducts
+            .Where(p => p.InvoiceId == invoiceId)
+            .Select(p => p.Quantity * p.UnitPrice)
+            .DefaultIfEmpty(0m)
+            .SumAsync();
+
+        await _context.Invoices
+            .Where(i => i.Id == invoiceId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(i => i.TotalAmount, updatedTotal)
+                .SetProperty(i => i.UpdatedAt, DateTime.UtcNow));
+
+        await transaction.CommitAsync();
+
+        return await _invoiceService.GetInvoiceByIdAsync(invoiceId);
     }
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
@@ -169,8 +188,6 @@ public class InvoiceProductService : IInvoiceProductService
 
     private sealed record ProductApiResponse(
         Guid Id,
-        string Code,
-        string Name,
         int Stock,
         decimal Price
     );

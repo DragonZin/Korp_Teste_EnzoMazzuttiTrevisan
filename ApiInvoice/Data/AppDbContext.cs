@@ -87,16 +87,6 @@ public class AppDbContext : DbContext
                 .HasColumnName("product_id")
                 .IsRequired();
 
-            entity.Property(i => i.ProductCode)
-                .HasColumnName("product_code")
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(i => i.ProductName)
-                .HasColumnName("product_name")
-                .HasMaxLength(255)
-                .IsRequired();
-
             entity.Property(i => i.Quantity)
                 .HasColumnName("quantity")
                 .IsRequired();

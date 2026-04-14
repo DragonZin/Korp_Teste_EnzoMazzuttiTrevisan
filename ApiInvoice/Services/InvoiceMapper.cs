@@ -19,8 +19,6 @@ internal static class InvoiceMapper
             invoice.Products.Select(i => new InvoiceItemResponse(
                 i.Id,
                 i.ProductId,
-                i.ProductCode,
-                i.ProductName,
                 i.UnitPrice,
                 i.Quantity,
                 i.TotalPrice
