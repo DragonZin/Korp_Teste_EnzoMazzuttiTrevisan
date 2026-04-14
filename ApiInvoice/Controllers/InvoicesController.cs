@@ -35,9 +35,9 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<InvoiceResponse>> CreateInvoice()
+    public async Task<ActionResult<InvoiceResponse>> CreateInvoice([FromBody] CreateInvoiceRequest request)
     {
-        var invoice = await _invoiceService.CreateInvoiceAsync();
+        var invoice = await _invoiceService.CreateInvoiceAsync(request);
         return CreatedAtAction(nameof(GetInvoice), new { id = invoice.Id }, invoice);
     }
 

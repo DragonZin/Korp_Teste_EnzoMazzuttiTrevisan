@@ -14,6 +14,10 @@ Accept: application/json
 POST {{ApiInvoice_HostAddress}}/api/invoices
 Content-Type: application/json
 
+{
+  "customerName": "Cliente Teste",
+  "customerDocument": "12345678901"
+}
 
 ### Atualizar nota fiscal
 PUT {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}

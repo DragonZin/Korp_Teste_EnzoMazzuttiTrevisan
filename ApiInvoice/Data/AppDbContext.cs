@@ -43,9 +43,6 @@ public class AppDbContext : DbContext
                 .HasConversion<int>()
                 .IsRequired();
 
-            entity.Property(i => i.CustomerId)
-                .HasColumnName("customer_id");
-
             entity.Property(i => i.CustomerName)
                 .HasColumnName("customer_name")
                 .HasMaxLength(255)

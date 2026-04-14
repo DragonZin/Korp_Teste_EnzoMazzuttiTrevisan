@@ -7,7 +7,8 @@ public record InvoiceResponse(
     int Number,
     InvoiceStatus Status,
     decimal TotalAmount,
+    string CustomerName,
+    string CustomerDocument,
     DateTime CreatedAt,
-    DateTime UpdatedAt,
     IReadOnlyCollection<InvoiceItemResponse> Products
 );

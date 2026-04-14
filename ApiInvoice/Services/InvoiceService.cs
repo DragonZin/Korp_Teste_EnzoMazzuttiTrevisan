@@ -66,9 +66,10 @@ public class InvoiceService : IInvoiceService
 
         return MapResponse(invoice);
     }
-
-    public async Task<InvoiceResponse> CreateInvoiceAsync()
+    public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request)
     {
+        ValidateCreateRequest(request);
+
         var nextInvoiceNumber = await GetNextInvoiceNumberAsync();
 
         var invoice = new Invoice
@@ -77,6 +78,8 @@ public class InvoiceService : IInvoiceService
             Number = nextInvoiceNumber,
             TotalAmount = 0,
             Status = InvoiceStatus.Open,
+            CustomerName = request.CustomerName.Trim(),
+            CustomerDocument = request.CustomerDocument.Trim(),
             Products = []
         };
 
@@ -103,8 +106,9 @@ public class InvoiceService : IInvoiceService
             invoice.Number,
             invoice.Status,
             invoice.TotalAmount,
+            invoice.CustomerName,
+            invoice.CustomerDocument,
             invoice.CreatedAt,
-            invoice.UpdatedAt,
             invoice.Products.Select(i => new InvoiceItemResponse(
                 i.Id,
                 i.ProductId,
@@ -187,6 +191,19 @@ public class InvoiceService : IInvoiceService
         if (item.Quantity <= 0)
         {
             throw new ValidationException("Quantity deve ser maior que zero.");
+        }
+    }
+
+    private static void ValidateCreateRequest(CreateInvoiceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.CustomerName) || request.CustomerName.Trim().Length > 255)
+        {
+            throw new ValidationException("CustomerName é obrigatório e deve ter no máximo 255 caracteres.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CustomerDocument) || request.CustomerDocument.Trim().Length > 50)
+        {
+            throw new ValidationException("CustomerDocument é obrigatório e deve ter no máximo 50 caracteres.");
         }
     }
 }
