@@ -10,7 +10,7 @@ Microserviço responsável pelo cadastro e consulta de produtos.
 
 > Observação: no gateway, use o prefixo direto da API: `/api/products`.
 
-## Rotas
+## Rotas públicas
 
 ### Healthcheck
 - `GET /health`
@@ -24,11 +24,32 @@ Resposta exemplo:
 }
 ```
 
+> Se o banco estiver indisponível, o endpoint retorna `503 Service Unavailable` com `status: "degraded"`.
+
 ### Listar produtos
 - `GET /api/products?search=&page=1&pageSize=10`
-- `search` é opcional
-- `page` mínimo: 1
+- `search` é opcional (busca por código ou nome)
+- `page` mínimo efetivo: 1
 - `pageSize` máximo efetivo: 100
+
+Resposta paginada:
+```json
+{
+  "items": [
+    {
+      "id": "8a95e9f9-7f4b-4d10-b72e-9aa8070abcc9",
+      "code": "SKU-001",
+      "name": "Teclado Mecânico",
+      "stock": 25,
+      "price": 249.90
+    }
+  ],
+  "page": 1,
+  "pageSize": 10,
+  "totalItems": 1,
+  "totalPages": 1
+}
+```
 
 ### Buscar produto por ID
 - `GET /api/products/{id}`
@@ -73,7 +94,21 @@ Body (envie ao menos 1 campo):
 ### Excluir produto (soft delete)
 - `DELETE /api/products/{id}`
 
-### Idempotência (opcional)
+## Rota interna (integração entre serviços)
+
+### Ajustar estoque por delta
+- `PUT /api/products/internal/{id}/inventory`
+- Uso interno da `ApiInvoice` no fechamento da nota.
+
+Body:
+```json
+{
+  "stockDelta": -2
+}
+```
+
+## Idempotência
+
 - Header: `Idempotency-Key`
 - Aplicado em: `POST /api/products`
 - Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
@@ -84,6 +119,23 @@ Body (envie ao menos 1 campo):
 - `Name` é obrigatório e com até 255 caracteres.
 - `Stock` e `Price` não podem ser negativos.
 - Exclusão é lógica (`is_deleted = true`).
+
+## Padrão de erro
+
+A API retorna erros no formato `application/problem+json`.
+
+Exemplo:
+```json
+{
+  "type": "https://httpstatuses.com/400",
+  "title": "Dados inválidos",
+  "status": 400,
+  "detail": "Código é obrigatório.",
+  "instance": "/api/products",
+  "traceId": "0HNA8...",
+  "timestamp": "2026-04-14T12:00:00Z"
+}
+```
 
 ## Executar localmente (sem Docker)
 

@@ -19,6 +19,19 @@ Microserviço responsável pela criação, manutenção e fechamento de notas fi
 - `GET /api/invoices?page=1&pageSize=10&status=`
 - `status` é opcional
 - `status`: `1` (Open), `2` (Closed)
+- `page` mínimo efetivo: 1
+- `pageSize` máximo efetivo: 100
+
+Resposta paginada:
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 10,
+  "totalItems": 0,
+  "totalPages": 0
+}
+```
 
 ### Buscar nota por ID
 - `GET /api/invoices/{id}`
@@ -68,7 +81,8 @@ Body:
 ### Excluir nota (somente aberta)
 - `DELETE /api/invoices/{id}`
 
-### Idempotência (opcional)
+## Idempotência
+
 - Header: `Idempotency-Key`
 - Aplicado em:
   - `POST /api/invoices`
@@ -84,7 +98,7 @@ Body:
 - `ProductId` duplicado no mesmo PATCH é inválido.
 - `Quantity` não pode ser negativa.
 - A disponibilidade de estoque é calculada sob demanda: `Stock - soma(Quantity em outras notas Open para o mesmo produto)`.
-- O fechamento da nota reduz apenas o `Stock` dos produtos da nota.
+- O fechamento da nota reduz apenas o `Stock` dos produtos da nota, chamando a rota interna de inventário da API de produtos.
 
 ## Fluxo de estoque
 
@@ -96,8 +110,25 @@ Body:
    - não aciona atualização de estoque na API de produtos.
 3. **PUT /close**:
    - valida consistência de `Stock` para os itens da nota;
-   - baixa estoque físico (`Stock`);
+   - baixa estoque físico (`Stock`) via endpoint interno da ApiProduct;
    - marca nota como `Closed` e preenche `ClosedAt`.
+
+## Padrão de erro
+
+A API retorna erros no formato `application/problem+json`.
+
+Exemplo:
+```json
+{
+  "type": "https://httpstatuses.com/404",
+  "title": "Recurso não encontrado",
+  "status": 404,
+  "detail": "Nota fiscal não encontrada.",
+  "instance": "/api/invoices/00000000-0000-0000-0000-000000000000",
+  "traceId": "0HNA8...",
+  "timestamp": "2026-04-14T12:00:00Z"
+}
+```
 
 ## Executar localmente (sem Docker)
 
