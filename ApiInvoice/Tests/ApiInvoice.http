@@ -1,8 +1,9 @@
 @ApiInvoice_HostAddress = http://localhost:5009
 @invoice_id = 2d7d9213-d3ea-4ab5-90b4-22e7de26dee2
-@product_id = 9716b6ae-f6bc-4ef1-82de-83dff34e14a7
 @page = 1
 @pageSize = 100
+@status_open = 1
+@status_closed = 2
 @idemKeyInvoiceCreate = invoice-create-001
 @idemKeyInvoiceClose = invoice-close-001
 
@@ -13,8 +14,12 @@ GET {{ApiInvoice_HostAddress}}/health
 GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}
 Accept: application/json
 
-### Listar notas fiscais por status
-GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}&status=Closed
+### Listar notas fiscais por status Open (1)
+GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}&status={{status_open}}
+Accept: application/json
+
+### Listar notas fiscais por status Closed (2)
+GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}&status={{status_closed}}
 Accept: application/json
 
 ### Buscar nota fiscal por id
@@ -38,6 +43,14 @@ Idempotency-Key: {{idemKeyInvoiceCreate}}
 {
   "customerName": "Cliente Idempotente",
   "customerDocument": "98765432100"
+}
+
+### Atualizar dados da nota fiscal (somente aberta)
+PUT {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
+Content-Type: application/json
+
+{
+  "customerName": "Cliente Teste Atualizado"
 }
 
 ### Fechar nota fiscal com idempotência

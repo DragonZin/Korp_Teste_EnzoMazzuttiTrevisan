@@ -1,9 +1,9 @@
 @ApiInvoice_HostAddress = http://localhost:5009
-@invoice_id = 510f5877-7f43-4ad3-b72d-01c83c4c4230
+@invoice_id = 48833923-ed43-48d2-b155-d2330354953f
 @product_id = 836ca35d-ad42-434b-a6d2-03da92f0a971
 @idempotency_key = invoice-items-001
 
-### Adicionar produtos na nota fiscal
+### Adicionar/atualizar produtos na nota fiscal
 PATCH {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}/items
 Content-Type: application/json
 
@@ -11,7 +11,7 @@ Content-Type: application/json
   "products": [
     {
       "productId": "{{product_id}}",
-      "quantity": 2
+      "quantity": 4
     },
     {
       "productId": "61e27b96-e968-4ffe-865d-ab2eeda74453",
@@ -20,7 +20,7 @@ Content-Type: application/json
   ]
 }
 
-### Adicionar produtos na nota fiscal com idempotência
+### Adicionar/atualizar produtos na nota fiscal com idempotência
 PATCH {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}/items
 Content-Type: application/json
 Idempotency-Key: {{idempotency_key}}
