@@ -1,9 +1,12 @@
-using Microsoft.EntityFrameworkCore;
 using ApiProduct.Models;
+using BuildingBlocks.Abstractions;
+using BuildingBlocks.Extensions;
+using BuildingBlocks.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ApiProduct.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IIdempotencyDbContext
 {
     public DbSet<Product> Products => Set<Product>();
     public DbSet<IdempotencyKeyRecord> IdempotencyKeys => Set<IdempotencyKeyRecord>();
@@ -22,7 +25,7 @@ public class AppDbContext : DbContext
             entity.ToTable("products");
 
             entity.HasKey(p => p.Id);
-           
+
             entity.HasIndex(p => p.Code)
                 .IsUnique()
                 .HasFilter("\"is_deleted\" = false");
@@ -31,7 +34,7 @@ public class AppDbContext : DbContext
 
             entity.Property(p => p.Id)
                 .HasColumnName("id");
-            
+
             entity.Property(p => p.Code)
                 .HasColumnName("code")
                 .IsRequired()
@@ -64,42 +67,8 @@ public class AppDbContext : DbContext
                 .HasColumnName("updated_at")
                 .IsRequired();
         });
-           
-    modelBuilder.Entity<IdempotencyKeyRecord>(entity =>
-        {
-            entity.ToTable("idempotency_keys");
 
-            entity.HasKey(i => i.Id);
-
-            entity.HasIndex(i => new { i.Key, i.Endpoint })
-                .IsUnique();
-
-            entity.Property(i => i.Id)
-                .HasColumnName("id");
-
-            entity.Property(i => i.Key)
-                .HasColumnName("key")
-                .HasMaxLength(255)
-                .IsRequired();
-
-            entity.Property(i => i.Endpoint)
-                .HasColumnName("endpoint")
-                .HasMaxLength(255)
-                .IsRequired();
-
-            entity.Property(i => i.Response)
-                .HasColumnName("response")
-                .HasColumnType("jsonb")
-                .IsRequired();
-
-            entity.Property(i => i.StatusCode)
-                .HasColumnName("status_code")
-                .IsRequired();
-
-            entity.Property(i => i.CreatedAt)
-                .HasColumnName("created_at")
-                .IsRequired();
-        });
+        modelBuilder.ConfigureIdempotencyKeyRecord();
     }
 
     public override int SaveChanges()
