@@ -121,7 +121,12 @@ public class InvoiceProductService : IInvoiceProductService
 
         if (requestedQuantity > availableStock)
         {
-            throw new ValidationException($"Produto {product.Id} sem estoque disponível. Disponível: {availableStock}.");
+            var exception = new ValidationException("Estoque insuficiente para o produto informado.");
+            exception.Data["productId"] = product.Id;
+            exception.Data["requestedQuantity"] = requestedQuantity;
+            exception.Data["availableStock"] = availableStock;
+
+            throw exception;
         }
     }
 
