@@ -6,7 +6,15 @@
         <small class="text-body-secondary">Produtos e notas fiscais</small>
       </div>
 
-      <nav class="nav nav-pills" aria-label="Menu principal">
+            <nav class="nav nav-pills" aria-label="Menu principal">
+        <a
+          class="nav-link"
+          routerLink="/"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          Início
+        </a>
         <a
           class="nav-link"
           routerLink="/products"
