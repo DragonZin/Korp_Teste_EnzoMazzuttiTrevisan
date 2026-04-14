@@ -73,6 +73,11 @@ Body (envie ao menos 1 campo):
 ### Excluir produto (soft delete)
 - `DELETE /api/products/{id}`
 
+### Idempotência (opcional)
+- Header: `Idempotency-Key`
+- Aplicado em: `POST /api/products`
+- Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
+
 ## Regras relevantes
 
 - `Code` é obrigatório, único (entre produtos não excluídos) e com até 50 caracteres.

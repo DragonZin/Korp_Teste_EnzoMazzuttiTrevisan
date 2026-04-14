@@ -6,6 +6,7 @@ namespace ApiProduct.Data;
 public class AppDbContext : DbContext
 {
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<IdempotencyKeyRecord> IdempotencyKeys => Set<IdempotencyKeyRecord>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -61,6 +62,42 @@ public class AppDbContext : DbContext
 
             entity.Property(p => p.UpdatedAt)
                 .HasColumnName("updated_at")
+                .IsRequired();
+        });
+           
+    modelBuilder.Entity<IdempotencyKeyRecord>(entity =>
+        {
+            entity.ToTable("idempotency_keys");
+
+            entity.HasKey(i => i.Id);
+
+            entity.HasIndex(i => new { i.Key, i.Endpoint })
+                .IsUnique();
+
+            entity.Property(i => i.Id)
+                .HasColumnName("id");
+
+            entity.Property(i => i.Key)
+                .HasColumnName("key")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(i => i.Endpoint)
+                .HasColumnName("endpoint")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(i => i.Response)
+                .HasColumnName("response")
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            entity.Property(i => i.StatusCode)
+                .HasColumnName("status_code")
+                .IsRequired();
+
+            entity.Property(i => i.CreatedAt)
+                .HasColumnName("created_at")
                 .IsRequired();
         });
     }
