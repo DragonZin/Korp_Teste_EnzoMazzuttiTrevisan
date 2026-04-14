@@ -1,9 +1,7 @@
 using ApiInvoice.Data;
-using ApiInvoice.Extensions;
 using ApiInvoice.Interfaces;
-using ApiInvoice.Middlewares;
 using ApiInvoice.Services;
-using Microsoft.AspNetCore.Mvc;
+using BuildingBlocks.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,37 +24,10 @@ builder.Services.AddHttpClient("ProductApi", client =>
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IInvoiceProductService, InvoiceProductService>();
 builder.Services.AddControllers();
-builder.Services.Configure<ApiBehaviorOptions>(options =>
+builder.Services.AddSharedApiDefaults(options =>
 {
-    options.InvalidModelStateResponseFactory = context =>
-    {
-        var errors = context.ModelState
-            .Where(x => x.Value?.Errors.Count > 0)
-            .ToDictionary(
-                keySelector: x => x.Key,
-                elementSelector: x => x.Value!.Errors
-                    .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage)
-                        ? "Valor inválido."
-                        : error.ErrorMessage)
-                    .ToArray());
-
-        var response = new
-        {
-            type = "https://httpstatuses.com/400",
-            title = "Dados inválidos",
-            status = StatusCodes.Status400BadRequest,
-            detail = "Um ou mais campos da requisição são inválidos.",
-            instance = context.HttpContext.Request.Path.ToString(),
-            traceId = context.HttpContext.TraceIdentifier,
-            timestamp = DateTime.UtcNow,
-            errors
-        };
-
-        return new BadRequestObjectResult(response)
-        {
-            ContentTypes = { "application/problem+json" }
-        };
-    };
+    options.ShouldHandleIdempotencyRequest = IdempotencyEndpointMatcher.ShouldHandle;
+    options.UniqueConstraintConflictDetail = "Já existe uma nota fiscal com esse número.";
 });
 
 var app = builder.Build();
@@ -77,25 +48,8 @@ await using (var scope = app.Services.CreateAsyncScope())
         """);
 }
 
-app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<ErrorHandlingMiddleware>();
-app.UseMiddleware<IdempotencyMiddleware>();
-
-app.MapGet("/health", async (AppDbContext dbContext, CancellationToken cancellationToken) =>
-{
-    var databaseOnline = await dbContext.Database.CanConnectAsync(cancellationToken);
-
-    var response = new
-    {
-        status = databaseOnline ? "ok" : "degraded",
-        databaseOnline,
-        timestamp = DateTime.UtcNow
-    };
-
-    return databaseOnline
-        ? Results.Ok(response)
-        : Results.Json(response, statusCode: StatusCodes.Status503ServiceUnavailable);
-});
+app.UseSharedApiDefaults();
+app.MapSharedHealthCheck<AppDbContext>();
 
 app.MapControllers();
 

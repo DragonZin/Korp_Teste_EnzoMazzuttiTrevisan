@@ -1,9 +1,12 @@
 using ApiInvoice.Models;
 using Microsoft.EntityFrameworkCore;
+using BuildingBlocks.Abstractions;
+using BuildingBlocks.Extensions;
+using BuildingBlocks.Models;
 
 namespace ApiInvoice.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IIdempotencyDbContext
 {
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceProduct> InvoiceProducts => Set<InvoiceProduct>();
@@ -71,42 +74,7 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        
-        modelBuilder.Entity<IdempotencyKeyRecord>(entity =>
-        {
-            entity.ToTable("idempotency_keys");
-
-            entity.HasKey(i => i.Id);
-
-            entity.HasIndex(i => new { i.Key, i.Endpoint })
-                .IsUnique();
-
-            entity.Property(i => i.Id)
-                .HasColumnName("id");
-
-            entity.Property(i => i.Key)
-                .HasColumnName("key")
-                .HasMaxLength(255)
-                .IsRequired();
-
-            entity.Property(i => i.Endpoint)
-                .HasColumnName("endpoint")
-                .HasMaxLength(255)
-                .IsRequired();
-
-            entity.Property(i => i.Response)
-                .HasColumnName("response")
-                .HasColumnType("jsonb")
-                .IsRequired();
-
-            entity.Property(i => i.StatusCode)
-                .HasColumnName("status_code")
-                .IsRequired();
-
-            entity.Property(i => i.CreatedAt)
-                .HasColumnName("created_at")
-                .IsRequired();
-        });
+        modelBuilder.ConfigureIdempotencyKeyRecord();
 
         modelBuilder.Entity<InvoiceProduct>(entity =>
         {

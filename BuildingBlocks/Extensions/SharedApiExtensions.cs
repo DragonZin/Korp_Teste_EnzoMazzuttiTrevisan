@@ -66,22 +66,27 @@ public static class SharedApiExtensions
     public static IEndpointRouteBuilder MapSharedHealthCheck<TDbContext>(this IEndpointRouteBuilder endpoints)
         where TDbContext : DbContext
     {
-        endpoints.MapGet("/health", async (TDbContext dbContext, CancellationToken cancellationToken) =>
-        {
-            var databaseOnline = await dbContext.Database.CanConnectAsync(cancellationToken);
-
-            var response = new
-            {
-                status = databaseOnline ? "ok" : "degraded",
-                databaseOnline,
-                timestamp = DateTime.UtcNow
-            };
-
-            return databaseOnline
-                ? Results.Ok(response)
-                : Results.Json(response, statusCode: StatusCodes.Status503ServiceUnavailable);
-        });
+        endpoints.MapGet("/health", HealthCheckHandler<TDbContext>);
 
         return endpoints;
+    }
+
+    private static async Task<IResult> HealthCheckHandler<TDbContext>(
+        TDbContext dbContext,
+        CancellationToken cancellationToken)
+        where TDbContext : DbContext
+    {
+        var databaseOnline = await dbContext.Database.CanConnectAsync(cancellationToken);
+
+        var response = new
+        {
+            status = databaseOnline ? "ok" : "degraded",
+            databaseOnline,
+            timestamp = DateTime.UtcNow
+        };
+
+        return databaseOnline
+            ? Results.Ok(response)
+            : Results.Json(response, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 }
