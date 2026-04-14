@@ -129,7 +129,7 @@ public class InvoiceService : IInvoiceService
         var invoice = await _context.Invoices
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
-        
+
         EnsureInvoiceIsOpen(invoice);
 
         _context.Invoices.Remove(invoice);

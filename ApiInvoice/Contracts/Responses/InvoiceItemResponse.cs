@@ -1,5 +1,3 @@
-using ApiInvoice.Enums;
-
 namespace ApiInvoice.Contracts;
 
 public record InvoiceItemResponse(

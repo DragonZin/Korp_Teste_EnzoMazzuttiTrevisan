@@ -9,7 +9,7 @@ public static class IdempotencyEndpointMatcher
 
     private static readonly Regex InvoiceCloseRouteRegex =
         new("^/api/invoices/[0-9a-fA-F-]{36}/close/?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    
+
     private static readonly Regex InvoiceItemsUpsertRouteRegex =
         new("^/api/invoices/[0-9a-fA-F-]{36}/items/?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 

@@ -62,7 +62,7 @@ public class InvoicesController : ControllerBase
         await _invoiceProductService.RemoveInvoiceItemAsync(invoiceId, productId);
         return NoContent();
     }
-    
+
     [HttpPut("{id:guid}/close")]
     public async Task<ActionResult<InvoiceResponse>> CloseInvoice(Guid id)
     {

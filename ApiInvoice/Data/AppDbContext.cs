@@ -64,7 +64,7 @@ public class AppDbContext : DbContext, IIdempotencyDbContext
             entity.Property(i => i.UpdatedAt)
                 .HasColumnName("updated_at")
                 .IsRequired();
-            
+
             entity.Property(i => i.ClosedAt)
                 .HasColumnName("closed_at");
 
