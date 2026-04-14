@@ -16,7 +16,7 @@ POST {{ApiProduto_HostAddress}}/api/products
 Content-Type: application/json
 
 {
-  "code": "PRO-001",
+  "code": "PRO-005",
   "name": "Produto Teste",
   "stock": 10,
   "price": 199.99
