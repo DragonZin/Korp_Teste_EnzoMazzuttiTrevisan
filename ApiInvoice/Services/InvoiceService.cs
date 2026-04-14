@@ -17,7 +17,7 @@ public class InvoiceService : IInvoiceService
         _context = context;
     }
 
-    public async Task<PagedResponse<InvoiceResponse>> GetInvoicesAsync(int page, int pageSize, int? number, InvoiceStatus? status)
+    public async Task<PagedResponse<InvoiceResponse>> GetInvoicesAsync(int page, int pageSize, InvoiceStatus? status)
     {
         var normalizedPage = page < 1 ? 1 : page;
         var normalizedPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -26,11 +26,6 @@ public class InvoiceService : IInvoiceService
             .AsNoTracking()
             .Include(i => i.Products)
             .AsQueryable();
-
-        if (number.HasValue)
-        {
-            query = query.Where(i => i.Number == number.Value);
-        }
 
         if (status.HasValue)
         {

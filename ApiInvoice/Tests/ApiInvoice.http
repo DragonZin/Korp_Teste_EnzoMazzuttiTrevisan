@@ -10,6 +10,10 @@ GET {{ApiInvoice_HostAddress}}/health
 GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}
 Accept: application/json
 
+### Listar notas fiscais por status
+GET {{ApiInvoice_HostAddress}}/api/invoices?page={{page}}&pageSize={{pageSize}}&status=Closed
+Accept: application/json
+
 ### Buscar nota fiscal por id
 GET {{ApiInvoice_HostAddress}}/api/invoices/{{invoice_id}}
 Accept: application/json

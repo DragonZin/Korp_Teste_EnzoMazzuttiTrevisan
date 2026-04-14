@@ -22,10 +22,9 @@ public class InvoicesController : ControllerBase
     public async Task<ActionResult<PagedResponse<InvoiceResponse>>> GetInvoices(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] int? number = null,
         [FromQuery] InvoiceStatus? status = null)
     {
-        var invoices = await _invoiceService.GetInvoicesAsync(page, pageSize, number, status);
+        var invoices = await _invoiceService.GetInvoicesAsync(page, pageSize, status);
         return Ok(invoices);
     }
 
