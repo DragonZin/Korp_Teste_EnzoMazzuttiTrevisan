@@ -5,6 +5,8 @@ using ApiInvoice.Exceptions;
 using ApiInvoice.Interfaces;
 using ApiInvoice.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
+using System.Net.Http.Json;
 
 namespace ApiInvoice.Services;
 
@@ -12,9 +14,12 @@ public class InvoiceService : IInvoiceService
 {
     private const int MaxPageSize = 100;
     private readonly AppDbContext _context;
-    public InvoiceService(AppDbContext context)
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public InvoiceService(AppDbContext context, IHttpClientFactory httpClientFactory)
     {
         _context = context;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<PagedResponse<InvoiceResponse>> GetInvoicesAsync(int page, int pageSize, InvoiceStatus? status)
@@ -108,7 +113,10 @@ public class InvoiceService : IInvoiceService
 
     public async Task<InvoiceResponse> CloseInvoiceAsync(Guid id)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var invoice = await _context.Invoices
+            .Include(i => i.Products)
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
@@ -117,11 +125,42 @@ public class InvoiceService : IInvoiceService
             throw new ValidationException("Nota fiscal já está fechada.");
         }
 
+        if (invoice.Products.Count > 0)
+        {
+            var productIds = invoice.Products.Select(i => i.ProductId).Distinct().ToList();
+            var productsById = await GetProductsByIdsAsync(productIds);
+
+            foreach (var item in invoice.Products)
+            {
+                if (!productsById.TryGetValue(item.ProductId, out var product))
+                {
+                    throw new NotFoundException($"Produto {item.ProductId} não encontrado.");
+                }
+
+                if (product.ReservedStock < item.Quantity)
+                {
+                    throw new ValidationException($"Estoque reservado inconsistente para o produto {item.ProductId}.");
+                }
+
+                if (product.Stock < item.Quantity)
+                {
+                    throw new ValidationException($"Estoque insuficiente para o produto {item.ProductId}.");
+                }
+
+                await UpdateProductStockAsync(
+                    item.ProductId,
+                    stock: product.Stock - item.Quantity,
+                    reservedStock: product.ReservedStock - item.Quantity);
+            }
+        }
+
         invoice.Status = InvoiceStatus.Closed;
         invoice.ClosedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        return await GetInvoiceByIdAsync(invoice.Id);
+        await transaction.CommitAsync();
+
+        return await GetInvoiceByIdAsync(id);
     }
 
     public async Task DeleteInvoiceAsync(Guid id)
@@ -129,11 +168,54 @@ public class InvoiceService : IInvoiceService
         var invoice = await _context.Invoices
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
-
+        
         EnsureInvoiceIsOpen(invoice);
 
         _context.Invoices.Remove(invoice);
         await _context.SaveChangesAsync();
+    }
+
+    private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
+    {
+        if (productIds.Count == 0)
+        {
+            return new Dictionary<Guid, ProductApiResponse>();
+        }
+
+        var client = _httpClientFactory.CreateClient("ProductApi");
+        var response = await client.PostAsJsonAsync("api/products/batch", new { Ids = productIds });
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Um ou mais produtos não foram encontrados.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException("Não foi possível consultar os produtos na API de produtos.");
+        }
+
+        var products = await response.Content.ReadFromJsonAsync<List<ProductApiResponse>>()
+            ?? throw new ValidationException("Resposta inválida da API de produtos.");
+
+        return products.ToDictionary(p => p.Id);
+    }
+
+    private async Task UpdateProductStockAsync(Guid productId, int? stock = null, int? reservedStock = null)
+    {
+        var client = _httpClientFactory.CreateClient("ProductApi");
+        var payload = new { Stock = stock, ReservedStock = reservedStock };
+        var response = await client.PutAsJsonAsync($"api/products/{productId}", payload);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException($"Produto {productId} não encontrado.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"Não foi possível atualizar o estoque do produto {productId}.");
+        }
     }
 
     private async Task<int> GetNextInvoiceNumberAsync()
@@ -190,4 +272,10 @@ public class InvoiceService : IInvoiceService
             throw new ValidationException("Nota fiscal fechada não pode ser alterada.");
         }
     }
+
+    private sealed record ProductApiResponse(
+        Guid Id,
+        int Stock,
+        int ReservedStock
+    );
 }

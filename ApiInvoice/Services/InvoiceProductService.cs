@@ -41,23 +41,35 @@ public class InvoiceProductService : IInvoiceProductService
 
         var existingItemsByProductId = existingItems.ToDictionary(p => p.ProductId);
         var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
-        var missingProductIds = requestByProductId.Keys
-            .Where(productId => !existingItemsByProductId.ContainsKey(productId))
-            .ToList();
 
-        var productsById = await GetProductsByIdsAsync(missingProductIds);
+        var productsById = await GetProductsByIdsAsync(requestByProductId.Keys.ToList());
 
         foreach (var itemRequest in request.Products)
         {
-            if (existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem))
-            {
-                existingItem.Quantity = itemRequest.Quantity;
-                continue;
-            }
-
             if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
             {
                 throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
+            }
+
+            var previousQuantity = 0;
+
+            if (existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem))
+            {
+                previousQuantity = existingItem.Quantity;
+            }
+
+            var quantityDelta = itemRequest.Quantity - previousQuantity;
+            EnsureProductAvailability(product, quantityDelta);
+
+            if (quantityDelta != 0)
+            {
+                await UpdateProductStockAsync(product.Id, reservedStock: product.ReservedStock + quantityDelta);
+            }
+
+            if (existingItem is not null)
+            {
+                existingItem.Quantity = itemRequest.Quantity;
+                continue;
             }
 
             var newItem = new InvoiceProduct
@@ -104,6 +116,16 @@ public class InvoiceProductService : IInvoiceProductService
         var itemToRemove = existingItems.FirstOrDefault(p => p.ProductId == productId)
             ?? throw new NotFoundException($"Item com produto {productId} não encontrado na nota fiscal.");
 
+        var product = await GetProductByIdAsync(productId);
+        var resultingReservedStock = product.ReservedStock - itemToRemove.Quantity;
+
+        if (resultingReservedStock < 0)
+        {
+            throw new ValidationException($"Estoque reservado inválido para o produto {productId}.");
+        }
+
+        await UpdateProductStockAsync(productId, reservedStock: resultingReservedStock);
+
         _context.InvoiceProducts.Remove(itemToRemove);
         existingItems.Remove(itemToRemove);
 
@@ -111,6 +133,20 @@ public class InvoiceProductService : IInvoiceProductService
 
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
+    }
+
+    private static void EnsureProductAvailability(ProductApiResponse product, int quantityDelta)
+    {
+        if (quantityDelta <= 0)
+        {
+            return;
+        }
+
+        var availableStock = product.Stock - product.ReservedStock;
+        if (quantityDelta > availableStock)
+        {
+            throw new ValidationException($"Produto {product.Id} sem estoque disponível. Disponível: {availableStock}.");
+        }
     }
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
@@ -139,9 +175,33 @@ public class InvoiceProductService : IInvoiceProductService
         return products.ToDictionary(p => p.Id);
     }
 
-    private static void RecalculateInvoiceTotal(Invoice invoice)
+    private async Task<ProductApiResponse> GetProductByIdAsync(Guid productId)
     {
-        invoice.TotalAmount = invoice.Products.Sum(p => p.TotalPrice);
+        var productsById = await GetProductsByIdsAsync([productId]);
+
+        if (!productsById.TryGetValue(productId, out var product))
+        {
+            throw new NotFoundException($"Produto {productId} não encontrado.");
+        }
+
+        return product;
+    }
+
+    private async Task UpdateProductStockAsync(Guid productId, int? stock = null, int? reservedStock = null)
+    {
+        var client = _httpClientFactory.CreateClient("ProductApi");
+        var payload = new { Stock = stock, ReservedStock = reservedStock };
+        var response = await client.PutAsJsonAsync($"api/products/{productId}", payload);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException($"Produto {productId} não encontrado.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"Não foi possível atualizar o estoque do produto {productId}.");
+        }
     }
 
     private static void ValidateManageItemsRequest(ManageInvoiceItemsRequest request)
@@ -186,6 +246,7 @@ public class InvoiceProductService : IInvoiceProductService
     private sealed record ProductApiResponse(
         Guid Id,
         int Stock,
+        int ReservedStock,
         decimal Price
     );
 }

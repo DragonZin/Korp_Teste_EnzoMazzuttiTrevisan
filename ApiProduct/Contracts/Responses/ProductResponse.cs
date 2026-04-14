@@ -5,5 +5,6 @@ public record ProductResponse(
     string Code,
     string Name,
     int Stock,
+    int ReservedStock,
     decimal Price
 );

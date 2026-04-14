@@ -37,13 +37,7 @@ public class ProductService : IProductService
             .OrderBy(p => p.Name)
             .Skip((normalizedPage - 1) * normalizedPageSize)
             .Take(normalizedPageSize)
-            .Select(p => new ProductResponse(
-                p.Id,
-                p.Code,
-                p.Name,
-                p.Stock,
-                p.Price
-            ))
+            .Select(p => ToResponse(p))
             .ToListAsync();
 
         return new PagedResponse<ProductResponse>(
@@ -60,13 +54,7 @@ public class ProductService : IProductService
         var product = await _context.Products
             .AsNoTracking()
             .Where(p => p.Id == id)
-            .Select(p => new ProductResponse(
-                p.Id,
-                p.Code,
-                p.Name,
-                p.Stock,
-                p.Price
-            ))
+            .Select(p => ToResponse(p))
             .FirstOrDefaultAsync();
 
         return product ?? throw new NotFoundException("Produto não encontrado.");
@@ -90,20 +78,14 @@ public class ProductService : IProductService
             .AsNoTracking()
             .Where(p => uniqueIds.Contains(p.Id))
             .OrderBy(p => p.Name)
-            .Select(p => new ProductResponse(
-                p.Id,
-                p.Code,
-                p.Name,
-                p.Stock,
-                p.Price
-            ))
+            .Select(p => ToResponse(p))
             .ToListAsync();
     }
 
     public async Task<ProductResponse> CreateProductAsync(CreateProductRequest request)
     {
-        ValidateRequest(request.Code, request.Name, request.Stock, request.Price);
-
+        ValidateRequest(request.Code, request.Name, request.Stock, request.ReservedStock, request.Price);
+        
         var code = request.Code.Trim();
         var name = request.Name.Trim();
 
