@@ -1,11 +1,12 @@
 using ApiInvoice.Enums;
-
 using ApiInvoice.Contracts;
 using ApiInvoice.Data;
 using ApiInvoice.Exceptions;
 using ApiInvoice.Interfaces;
 using ApiInvoice.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
+using System.Net.Http.Json;
 
 namespace ApiInvoice.Services;
 
@@ -13,6 +14,13 @@ public class InvoiceService : IInvoiceService
 {
     private const int MaxPageSize = 100;
     private readonly AppDbContext _context;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public InvoiceService(AppDbContext context, IHttpClientFactory httpClientFactory)
+    {
+        _context = context;
+        _httpClientFactory = httpClientFactory;
+    }
 
     public InvoiceService(AppDbContext context)
     {
@@ -108,6 +116,52 @@ public class InvoiceService : IInvoiceService
             invoice.CustomerDocument = request.CustomerDocument.Trim();
         }
 
+        await _context.SaveChangesAsync();
+        return await GetInvoiceByIdAsync(invoice.Id);
+    }
+
+        public async Task<InvoiceResponse> ManageInvoiceItemAsync(Guid id, ManageInvoiceItemRequest request)
+    {
+        ValidateManageItemRequest(request);
+
+        var invoice = await _context.Invoices
+            .Include(i => i.Products)
+            .FirstOrDefaultAsync(i => i.Id == id)
+            ?? throw new NotFoundException("Nota fiscal não encontrada.");
+
+        EnsureInvoiceIsOpen(invoice);
+
+        var existingItem = invoice.Products.FirstOrDefault(p => p.ProductId == request.ProductId);
+
+        if (request.Quantity == 0)
+        {
+            if (existingItem is null)
+            {
+                throw new NotFoundException("Item não encontrado na nota fiscal.");
+            }
+
+            invoice.Products.Remove(existingItem);
+        }
+        else if (existingItem is not null)
+        {
+            existingItem.Quantity = request.Quantity;
+        }
+        else
+        {
+            var product = await GetProductByIdAsync(request.ProductId);
+
+            invoice.Products.Add(new InvoiceProduct
+            {
+                Id = Guid.NewGuid(),
+                ProductId = request.ProductId,
+                ProductCode = product.Code,
+                ProductName = product.Name,
+                UnitPrice = product.Price,
+                Quantity = request.Quantity
+            });
+        }
+
+        RecalculateInvoiceTotal(invoice);
         await _context.SaveChangesAsync();
         return await GetInvoiceByIdAsync(invoice.Id);
     }

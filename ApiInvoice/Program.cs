@@ -15,6 +15,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddHttpClient("ProductApi", client =>
+{
+    var productApiBaseUrl = builder.Configuration["ProductApi:BaseUrl"]
+        ?? throw new InvalidOperationException("Configuração ProductApi:BaseUrl é obrigatória.");
+
+    client.BaseAddress = new Uri(productApiBaseUrl);
+});
+
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>

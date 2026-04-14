@@ -48,6 +48,13 @@ public class InvoicesController : ControllerBase
         return Ok(invoice);
     }
 
+    [HttpPut("{id:guid}/items")]
+    public async Task<ActionResult<InvoiceResponse>> ManageInvoiceItem(Guid id, [FromBody] ManageInvoiceItemRequest request)
+    {
+        var invoice = await _invoiceService.ManageInvoiceItemAsync(id, request);
+        return Ok(invoice);
+    }
+
     [HttpPut("{id:guid}/close")]
     public async Task<ActionResult<InvoiceResponse>> CloseInvoice(Guid id)
     {
