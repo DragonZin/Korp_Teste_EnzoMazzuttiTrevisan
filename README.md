@@ -5,14 +5,15 @@ Projeto .NET com duas APIs REST:
 - **ApiProduct**: cadastro e consulta de produtos.
 - **ApiInvoice**: emissão e gestão de notas fiscais, integrada à API de produtos.
 
-Também inclui um **API Gateway (NGINX)** para centralizar o acesso.
+Também inclui um **API Gateway (NGINX)** para centralizar o acesso e entregar o frontend na rota principal (`/`).
 
 ## Estrutura
 
-- `ApiProduct/` → microserviço de produtos.
-- `ApiInvoice/` → microserviço de notas fiscais.
+- `ApiProduct/` → microserviço de produtos. (C# – ASP.NET Core Web API)
+- `ApiInvoice/` → microserviço de notas fiscais. (C# – ASP.NET Core Web API)
 - `BuildingBlocks/` → componentes compartilhados (middlewares, healthcheck, idempotência e tratamento de erro).
 - `Gateway/nginx.conf` → roteamento do gateway.
+- `frontend/` → aplicação frontend (Angular).
 - `docker-compose.yml` → orquestra bancos, APIs e gateway.
 
 ## Pré-requisitos
@@ -28,7 +29,7 @@ docker compose up --build -d
 
 Serviços publicados:
 
-- Gateway: `http://localhost:8080`
+- Frontend (via gateway): `http://localhost:8080/`
 - API Produtos e API Nota Fiscal: **acesso externo somente via gateway**.
 - PostgreSQL Produtos: `localhost:5433`
 - PostgreSQL Nota Fiscal: `localhost:5434`
@@ -37,6 +38,8 @@ Serviços publicados:
 
 - Gateway
   - `http://localhost:8080/health`
+- Frontend
+  - `http://localhost:8080/`
 - Produtos
   - `http://localhost:8080/api/products/health`
 - Nota Fiscal

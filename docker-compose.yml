@@ -64,6 +64,14 @@ services:
     ports:
       - "8080"
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    ports:
+      - "80"
+
   api-gateway:
     image: nginx:1.27-alpine
     container_name: api_gateway
@@ -72,6 +80,7 @@ services:
     depends_on:
       - api-product
       - api-invoice
+      - frontend
     ports:
       - "8080:8080"
 
