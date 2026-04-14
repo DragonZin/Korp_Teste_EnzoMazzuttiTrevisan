@@ -66,6 +66,10 @@ public class AppDbContext : DbContext, IIdempotencyDbContext
             entity.Property(p => p.UpdatedAt)
                 .HasColumnName("updated_at")
                 .IsRequired();
+            
+            entity.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .IsRowVersion();
         });
 
         modelBuilder.ConfigureIdempotencyKeyRecord();

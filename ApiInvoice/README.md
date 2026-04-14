@@ -99,6 +99,7 @@ Body:
 - `Quantity` não pode ser negativa.
 - A disponibilidade de estoque é calculada sob demanda: `Stock - soma(Quantity em outras notas Open para o mesmo produto)`.
 - O fechamento da nota reduz apenas o `Stock` dos produtos da nota, chamando a rota interna de inventário da API de produtos.
+- As chamadas HTTP para a ApiProduct usam resiliência com Polly: retry curto, timeout e circuit breaker.
 
 ## Fluxo de estoque
 
@@ -111,6 +112,8 @@ Body:
 3. **PUT /close**:
    - valida consistência de `Stock` para os itens da nota;
    - baixa estoque físico (`Stock`) via endpoint interno da ApiProduct;
+   - se uma baixa falhar após baixas anteriores já aplicadas, executa compensação síncrona (rollback por delta inverso em ordem reversa);
+   - em caso de falha no processo, o fechamento é abortado e a nota permanece sem fechamento definitivo;
    - marca nota como `Closed` e preenche `ClosedAt`.
 
 ## Padrão de erro

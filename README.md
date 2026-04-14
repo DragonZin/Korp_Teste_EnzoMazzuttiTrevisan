@@ -42,13 +42,16 @@ Serviços publicados:
 - Nota Fiscal
   - `http://localhost:8080/api/invoices/health`
 
-## Novas funcionalidades documentadas
+## Funcionalidades documentadas
 
 - **Idempotência por header `Idempotency-Key`** para operações críticas (criação de produto, criação de nota e fechamento de nota).
 - **Paginação padronizada** com `items`, `page`, `pageSize`, `totalItems` e `totalPages`.
 - **Tratamento de erro padronizado (`application/problem+json`)** com `traceId` e `timestamp`.
 - **Healthcheck com status degradado (`503`)** quando não há conexão com banco.
 - **Migração automática de banco no startup** das APIs.
+- **Resiliência HTTP na ApiInvoice para chamadas à ApiProduct** com Polly (`retry`, `timeout` e `circuit breaker`) em configuração conservadora.
+- **Compensação síncrona simples no fechamento de nota**: se uma baixa de estoque falhar no meio, as baixas já aplicadas são revertidas e o fechamento é abortado.
+- **Concorrência otimista no estoque da ApiProduct** usando `xmin` (PostgreSQL/EF Core) para evitar inconsistência em atualizações simultâneas.
 
 ## Rodar localmente sem Docker (APIs)
 

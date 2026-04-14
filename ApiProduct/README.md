@@ -119,6 +119,8 @@ Body:
 - `Name` é obrigatório e com até 255 caracteres.
 - `Stock` e `Price` não podem ser negativos.
 - Exclusão é lógica (`is_deleted = true`).
+- Atualizações de estoque usam concorrência otimista (token `xmin` do PostgreSQL via EF Core) para evitar inconsistência em disputa simultânea.
+- Em conflito de concorrência, a API responde erro amigável de conflito (`409`) orientando atualização dos dados e nova tentativa.
 
 ## Padrão de erro
 

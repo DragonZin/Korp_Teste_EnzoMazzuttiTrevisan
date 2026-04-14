@@ -132,6 +132,8 @@ public class InvoiceService : IInvoiceService
             var totalQuantitiesByProduct = invoice.Products
                 .GroupBy(i => i.ProductId)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+            
+            var appliedAdjustments = new List<(Guid ProductId, int Quantity)>();
 
             foreach (var productEntry in totalQuantitiesByProduct)
             {
@@ -144,6 +146,23 @@ public class InvoiceService : IInvoiceService
                 {
                     throw new ValidationException($"Estoque insuficiente para o produto {productEntry.Key}.");
                 }
+            }
+
+            try
+            {
+                foreach (var productEntry in totalQuantitiesByProduct)
+                {
+                    await AdjustProductInventoryAsync(
+                        productEntry.Key,
+                        stockDelta: -productEntry.Value);
+
+                    appliedAdjustments.Add((productEntry.Key, productEntry.Value));
+                }
+            }
+            catch (Exception)
+            {
+                await CompensateInventoryAdjustmentsAsync(appliedAdjustments);
+                throw new ValidationException("Não foi possível concluir o fechamento da nota fiscal. As baixas de estoque aplicadas foram compensadas.");
             }
 
             foreach (var productEntry in totalQuantitiesByProduct)
@@ -216,6 +235,25 @@ public class InvoiceService : IInvoiceService
         if (!response.IsSuccessStatusCode)
         {
             throw new ValidationException($"Não foi possível atualizar o estoque do produto {productId}.");
+        }
+    }
+    
+    private async Task CompensateInventoryAdjustmentsAsync(List<(Guid ProductId, int Quantity)> appliedAdjustments)
+    {
+        for (var i = appliedAdjustments.Count - 1; i >= 0; i--)
+        {
+            var appliedAdjustment = appliedAdjustments[i];
+
+            try
+            {
+                await AdjustProductInventoryAsync(
+                    appliedAdjustment.ProductId,
+                    stockDelta: appliedAdjustment.Quantity);
+            }
+            catch
+            {
+                // Melhor esforço de compensação síncrona.
+            }
         }
     }
 
