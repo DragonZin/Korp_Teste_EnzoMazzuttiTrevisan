@@ -1,8 +1,7 @@
-using ApiInvoice.Enums;
-
 namespace ApiInvoice.Contracts;
 
 public class UpdateInvoiceRequest
 {
-    public IReadOnlyCollection<CreateInvoiceItemRequest>? Items { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerDocument { get; set; }
 }

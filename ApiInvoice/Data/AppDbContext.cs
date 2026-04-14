@@ -60,6 +60,9 @@ public class AppDbContext : DbContext
             entity.Property(i => i.UpdatedAt)
                 .HasColumnName("updated_at")
                 .IsRequired();
+            
+            entity.Property(i => i.ClosedAt)
+                .HasColumnName("closed_at");
 
             entity.HasMany(i => i.Products)
                 .WithOne(p => p.Invoice)

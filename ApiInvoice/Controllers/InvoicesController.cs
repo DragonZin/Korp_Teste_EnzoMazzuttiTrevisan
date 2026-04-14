@@ -41,6 +41,21 @@ public class InvoicesController : ControllerBase
         return CreatedAtAction(nameof(GetInvoice), new { id = invoice.Id }, invoice);
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<InvoiceResponse>> UpdateInvoice(Guid id, [FromBody] UpdateInvoiceRequest request)
+    {
+        var invoice = await _invoiceService.UpdateInvoiceAsync(id, request);
+        return Ok(invoice);
+    }
+
+    [HttpPut("{id:guid}/close")]
+    public async Task<ActionResult<InvoiceResponse>> CloseInvoice(Guid id)
+    {
+        var invoice = await _invoiceService.CloseInvoiceAsync(id);
+        return Ok(invoice);
+    }
+
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteInvoice(Guid id)
     {

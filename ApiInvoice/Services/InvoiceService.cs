@@ -89,11 +89,54 @@ public class InvoiceService : IInvoiceService
         return await GetInvoiceByIdAsync(invoice.Id);
     }
 
+    public async Task<InvoiceResponse> UpdateInvoiceAsync(Guid id, UpdateInvoiceRequest request)
+    {
+        var invoice = await _context.Invoices
+            .FirstOrDefaultAsync(i => i.Id == id)
+            ?? throw new NotFoundException("Nota fiscal não encontrada.");
+
+        EnsureInvoiceIsOpen(invoice);
+        ValidateUpdateRequest(request);
+
+        if (request.CustomerName is not null)
+        {
+            invoice.CustomerName = request.CustomerName.Trim();
+        }
+
+        if (request.CustomerDocument is not null)
+        {
+            invoice.CustomerDocument = request.CustomerDocument.Trim();
+        }
+
+        await _context.SaveChangesAsync();
+        return await GetInvoiceByIdAsync(invoice.Id);
+    }
+
+    public async Task<InvoiceResponse> CloseInvoiceAsync(Guid id)
+    {
+        var invoice = await _context.Invoices
+            .FirstOrDefaultAsync(i => i.Id == id)
+            ?? throw new NotFoundException("Nota fiscal não encontrada.");
+
+        if (invoice.Status == InvoiceStatus.Closed)
+        {
+            throw new ValidationException("Nota fiscal já está fechada.");
+        }
+
+        invoice.Status = InvoiceStatus.Closed;
+        invoice.ClosedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return await GetInvoiceByIdAsync(invoice.Id);
+    }
+
     public async Task DeleteInvoiceAsync(Guid id)
     {
         var invoice = await _context.Invoices
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
+        
+        EnsureInvoiceIsOpen(invoice);
 
         _context.Invoices.Remove(invoice);
         await _context.SaveChangesAsync();
@@ -109,6 +152,7 @@ public class InvoiceService : IInvoiceService
             invoice.CustomerName,
             invoice.CustomerDocument,
             invoice.CreatedAt,
+            invoice.ClosedAt,
             invoice.Products.Select(i => new InvoiceItemResponse(
                 i.Id,
                 i.ProductId,
@@ -204,6 +248,41 @@ public class InvoiceService : IInvoiceService
         if (string.IsNullOrWhiteSpace(request.CustomerDocument) || request.CustomerDocument.Trim().Length > 50)
         {
             throw new ValidationException("CustomerDocument é obrigatório e deve ter no máximo 50 caracteres.");
+        }
+    }
+
+    private static void ValidateUpdateRequest(UpdateInvoiceRequest request)
+    {
+        var hasName = request.CustomerName is not null;
+        var hasDocument = request.CustomerDocument is not null;
+
+        if (!hasName && !hasDocument)
+        {
+            throw new ValidationException("Informe CustomerName e/ou CustomerDocument para atualização.");
+        }
+
+        if (hasName)
+        {
+            if (string.IsNullOrWhiteSpace(request.CustomerName) || request.CustomerName.Trim().Length > 255)
+            {
+                throw new ValidationException("CustomerName deve ter no máximo 255 caracteres.");
+            }
+        }
+
+        if (hasDocument)
+        {
+            if (string.IsNullOrWhiteSpace(request.CustomerDocument) || request.CustomerDocument.Trim().Length > 50)
+            {
+                throw new ValidationException("CustomerDocument deve ter no máximo 50 caracteres.");
+            }
+        }
+    }
+
+    private static void EnsureInvoiceIsOpen(Invoice invoice)
+    {
+        if (invoice.Status == InvoiceStatus.Closed)
+        {
+            throw new ValidationException("Nota fiscal fechada não pode ser alterada.");
         }
     }
 }
