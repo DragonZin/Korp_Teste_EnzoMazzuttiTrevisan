@@ -7,6 +7,7 @@ public class AppDbContext : DbContext
 {
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceProduct> InvoiceProducts => Set<InvoiceProduct>();
+    public DbSet<IdempotencyKeyRecord> IdempotencyKeys => Set<IdempotencyKeyRecord>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -68,6 +69,43 @@ public class AppDbContext : DbContext
                 .WithOne(p => p.Invoice)
                 .HasForeignKey(p => p.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        
+        modelBuilder.Entity<IdempotencyKeyRecord>(entity =>
+        {
+            entity.ToTable("idempotency_keys");
+
+            entity.HasKey(i => i.Id);
+
+            entity.HasIndex(i => new { i.Key, i.Endpoint })
+                .IsUnique();
+
+            entity.Property(i => i.Id)
+                .HasColumnName("id");
+
+            entity.Property(i => i.Key)
+                .HasColumnName("key")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(i => i.Endpoint)
+                .HasColumnName("endpoint")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(i => i.Response)
+                .HasColumnName("response")
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            entity.Property(i => i.StatusCode)
+                .HasColumnName("status_code")
+                .IsRequired();
+
+            entity.Property(i => i.CreatedAt)
+                .HasColumnName("created_at")
+                .IsRequired();
         });
 
         modelBuilder.Entity<InvoiceProduct>(entity =>

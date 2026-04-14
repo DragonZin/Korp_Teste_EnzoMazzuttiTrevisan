@@ -68,6 +68,13 @@ Body:
 ### Excluir nota (somente aberta)
 - `DELETE /api/invoices/{id}`
 
+### Idempotência (opcional)
+- Header: `Idempotency-Key`
+- Aplicado em:
+  - `POST /api/invoices`
+  - `PUT /api/invoices/{id}/close`
+- Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
+
 ## Regras relevantes
 
 - Número da nota é sequencial e inicia em `1000`.
