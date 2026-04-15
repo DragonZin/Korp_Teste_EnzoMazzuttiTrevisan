@@ -2,10 +2,11 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize } from 'rxjs';
+import { catchError, finalize, forkJoin, map, of } from 'rxjs';
 
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
+import { ProductsApiService } from '../../products/data/products-api.service';
 
 @Component({
   selector: 'app-invoice-detail-page',
@@ -16,7 +17,7 @@ import { Invoice } from '../models/invoice.model';
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
           <div>
-            <h2 class="h5 mb-1">Detalhe da nota #{{ invoiceId() }}</h2>
+            <h2 class="h5 mb-1">Detalhe da nota NF-{{ invoice()?.number }}</h2>            
             <p class="text-body-secondary mb-0">Visualização e edição da nota fiscal.</p>
           </div>
           <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar para notas</button>
@@ -83,21 +84,26 @@ import { Invoice } from '../models/invoice.model';
               </thead>
               <tbody>
                 <tr *ngFor="let product of invoice.products">
-                  <td>{{ product.productId }}</td>
+                  <td>{{ getProductDisplayName(product.productId) }}</td>
                   <td class="text-end">{{ product.unitPrice | currency: 'BRL' }}</td>
                   <td class="text-end">{{ product.quantity }}</td>
                   <td class="text-end">{{ product.totalPrice | currency: 'BRL' }}</td>
                 </tr>
+
                 <tr *ngIf="invoice.products.length === 0">
-                  <td colspan="4" class="text-center text-body-secondary py-3">Esta nota não possui produtos cadastrados.</td>
+                  <td colspan="4" class="text-center text-body-secondary py-3">
+                    Esta nota não possui produtos cadastrados.
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
+        </ng-container>
 
         <p *ngIf="!isLoading() && !invoice() && !errorMessage()" class="text-body-secondary mb-0">
           Nenhuma nota fiscal encontrada para o identificador informado.
         </p>
+
       </div>
     </section>
   `
@@ -106,11 +112,13 @@ export class InvoiceDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
+  private readonly productsApiService = inject(ProductsApiService);
 
   protected readonly invoiceId = signal('');
   protected readonly invoice = signal<Invoice | null>(null);
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly productNamesById = signal<Record<string, string>>({});
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -142,12 +150,43 @@ export class InvoiceDetailPageComponent implements OnInit {
       .subscribe({
         next: (invoice: Invoice) => {
           this.invoice.set(invoice);
+          this.loadProductNames(invoice);
         },
         error: (error: HttpErrorResponse) => {
           this.invoice.set(null);
+          this.productNamesById.set({});
           this.errorMessage.set(this.getFriendlyErrorMessage(error));
         }
       });
+  }
+
+  protected getProductDisplayName(productId: string): string {
+    return this.productNamesById()[productId] ?? productId;
+  }
+
+  private loadProductNames(invoice: Invoice): void {
+    const uniqueProductIds = [...new Set(invoice.products.map((item) => item.productId).filter(Boolean))];
+
+    if (uniqueProductIds.length === 0) {
+      this.productNamesById.set({});
+      return;
+    }
+
+    const requests = uniqueProductIds.map((productId) =>
+      this.productsApiService.getById(productId).pipe(
+        map((product) => ({ productId, name: product.name })),
+        catchError(() => of({ productId, name: productId }))
+      )
+    );
+
+    forkJoin(requests).subscribe((products) => {
+      const namesLookup = products.reduce<Record<string, string>>((accumulator, product) => {
+        accumulator[product.productId] = product.name;
+        return accumulator;
+      }, {});
+
+      this.productNamesById.set(namesLookup);
+    });
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
