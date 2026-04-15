@@ -12,6 +12,8 @@ import { InvoiceFormComponent } from '../components/invoice-form.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 import { Invoice } from '../models/invoice.model';
+import { getRelevantInvoiceDate } from '../utils/invoice-date.util';
+import { toInvoiceStatusClass, toInvoiceStatusLabel } from '../utils/invoice-status.util';
 
 @Component({
   selector: 'app-invoices-page',
@@ -88,11 +90,11 @@ import { Invoice } from '../models/invoice.model';
                   </td>
                   <td data-label="Cliente">{{ invoice.customerName }}</td>
                   <td data-label="Status">
-                    <span class="badge rounded-pill invoice-status-badge" [ngClass]="getStatusBadgeClass(invoice.status)">
-                      {{ getStatusLabel(invoice.status) }}
+                    <span class="badge rounded-pill invoice-status-badge" [ngClass]="toInvoiceStatusClass(invoice.status)">
+                      {{ toInvoiceStatusLabel(invoice.status) }}
                     </span>
                   </td>
-                  <td data-label="Data">{{ getInvoiceDate(invoice) | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td data-label="Data">{{ getRelevantInvoiceDate(invoice) | date: 'dd/MM/yyyy HH:mm' }}</td>
                   <td data-label="Total" class="text-end fw-semibold">{{ invoice.totalAmount | currency: 'BRL':'symbol':'1.2-2' }}</td>
                   <td data-label="Ações">
                     <div class="d-flex justify-content-end flex-wrap gap-2">
@@ -202,6 +204,9 @@ export class InvoicesPageComponent implements OnInit {
   readonly createCustomerName = signal('');
   readonly createCustomerDocument = signal('');
 
+  protected readonly toInvoiceStatusLabel = toInvoiceStatusLabel;
+  protected readonly toInvoiceStatusClass = toInvoiceStatusClass;
+  protected readonly getRelevantInvoiceDate = getRelevantInvoiceDate;
   ngOnInit(): void {
     this.loadInvoices();
   }
@@ -359,19 +364,6 @@ export class InvoicesPageComponent implements OnInit {
 
   isActionInProgress(invoiceId: string): boolean {
     return this.deletingInvoiceId() === invoiceId || this.closingInvoiceId() === invoiceId;
-  }
-
-  getStatusBadgeClass(status: number): 'invoice-status-open' | 'invoice-status-closed' {
-    return status === 2 ? 'invoice-status-closed' : 'invoice-status-open';
-  }
-
-  getStatusLabel(status: number): 'Open' | 'Closed' {
-    return status === 2 ? 'Closed' : 'Open';
-  }
-
-  getInvoiceDate(invoice: Invoice): Date {
-    const dateToFormat = invoice.status === 2 && invoice.closedAt ? invoice.closedAt : invoice.createdAt;
-    return new Date(dateToFormat);
   }
 
   printInvoice(invoice: Invoice): void {

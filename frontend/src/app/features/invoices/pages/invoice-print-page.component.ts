@@ -131,10 +131,6 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
     this.disablePrintMode();
   }
 
-  protected getStatusLabel(status: number): 'Open' | 'Closed' {
-    return status === 2 ? 'Closed' : 'Open';
-  }
-
   protected getProductDisplayName(productId: string): string {
     return this.productNamesById()[productId] ?? productId;
   }
