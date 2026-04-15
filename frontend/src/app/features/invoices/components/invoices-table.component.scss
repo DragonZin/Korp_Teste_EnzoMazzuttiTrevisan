@@ -1,3 +1,13 @@
+.invoice-status-badge.invoice-status-open {
+  background-color: var(--bs-success-bg-subtle);
+  color: var(--bs-success-text-emphasis);
+}
+
+.invoice-status-badge.invoice-status-closed {
+  background-color: var(--bs-secondary-bg-subtle);
+  color: var(--bs-secondary-text-emphasis);
+}
+
 @media (max-width: 767.98px) {
   .invoice-table thead {
     display: none;
