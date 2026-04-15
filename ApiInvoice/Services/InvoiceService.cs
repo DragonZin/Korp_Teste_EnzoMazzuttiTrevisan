@@ -134,7 +134,7 @@ public class InvoiceService : IInvoiceService
                 .GroupBy(i => i.ProductId)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
             
-            var appliedAdjustments = new List<(Guid ProductId, int Quantity)>();
+            var appliedAdjustments = new List<(Guid ProductId, int StockDelta, int ReservedStockDelta)>();
 
             foreach (var productEntry in totalQuantitiesByProduct)
             {
@@ -153,12 +153,20 @@ public class InvoiceService : IInvoiceService
             {
                 foreach (var productEntry in totalQuantitiesByProduct)
                 {
+                    var stockDelta = -productEntry.Value;
+                    var reservedStockDelta = -productEntry.Value;
+
                     await AdjustProductInventoryAsync(
                         productEntry.Key,
-                        stockDelta: -productEntry.Value,
-                        idempotencyKey: BuildInventoryAdjustmentIdempotencyKey(id, productEntry.Key, -productEntry.Value));
+                        stockDelta: stockDelta,
+                        reservedStockDelta: reservedStockDelta,
+                        idempotencyKey: BuildInventoryAdjustmentIdempotencyKey(
+                            id,
+                            productEntry.Key,
+                            stockDelta,
+                            reservedStockDelta));
 
-                    appliedAdjustments.Add((productEntry.Key, productEntry.Value));
+                    appliedAdjustments.Add((productEntry.Key, stockDelta, reservedStockDelta));
                 }
             }
             catch (Exception)
@@ -216,10 +224,18 @@ public class InvoiceService : IInvoiceService
         return products.ToDictionary(p => p.Id);
     }
 
-    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0, string? idempotencyKey = null)
+    private async Task AdjustProductInventoryAsync(
+        Guid productId,
+        int stockDelta = 0,
+        int reservedStockDelta = 0,
+        string? idempotencyKey = null)
     {
         var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = JsonContent.Create(new { StockDelta = stockDelta });
+        var payload = JsonContent.Create(new
+        {
+            StockDelta = stockDelta,
+            ReservedStockDelta = reservedStockDelta
+        });
         using var request = new HttpRequestMessage(HttpMethod.Put, $"api/products/internal/{productId}/inventory")
         {
             Content = payload
@@ -243,18 +259,25 @@ public class InvoiceService : IInvoiceService
         }
     }
     
-    private async Task CompensateInventoryAdjustmentsAsync(List<(Guid ProductId, int Quantity)> appliedAdjustments)
+    private async Task CompensateInventoryAdjustmentsAsync(
+        List<(Guid ProductId, int StockDelta, int ReservedStockDelta)> appliedAdjustments)
     {
         for (var i = appliedAdjustments.Count - 1; i >= 0; i--)
         {
             var appliedAdjustment = appliedAdjustments[i];
 
             try
+            try
             {
                 await AdjustProductInventoryAsync(
                     appliedAdjustment.ProductId,
-                    stockDelta: appliedAdjustment.Quantity,
-                    idempotencyKey: BuildInventoryCompensationIdempotencyKey(appliedAdjustment.ProductId, appliedAdjustment.Quantity, i));
+                    stockDelta: -appliedAdjustment.StockDelta,
+                    reservedStockDelta: -appliedAdjustment.ReservedStockDelta,
+                    idempotencyKey: BuildInventoryCompensationIdempotencyKey(
+                        appliedAdjustment.ProductId,
+                        -appliedAdjustment.StockDelta,
+                        -appliedAdjustment.ReservedStockDelta,
+                        i));
             }
             catch
             {
@@ -262,6 +285,20 @@ public class InvoiceService : IInvoiceService
             }
         }
     }
+
+    private static string BuildInventoryAdjustmentIdempotencyKey(
+        Guid invoiceId,
+        Guid productId,
+        int stockDelta,
+        int reservedStockDelta)
+        => $"invoice-close:{invoiceId}:product:{productId}:stock:{stockDelta}:reserved:{reservedStockDelta}";
+
+    private static string BuildInventoryCompensationIdempotencyKey(
+        Guid productId,
+        int stockDelta,
+        int reservedStockDelta,
+        int index)
+        => $"invoice-close-compensation:product:{productId}:stock:{stockDelta}:reserved:{reservedStockDelta}:idx:{index}";
 
     private static string BuildInventoryAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int stockDelta)
         => $"invoice-close:{invoiceId}:product:{productId}:stock:{stockDelta}";
