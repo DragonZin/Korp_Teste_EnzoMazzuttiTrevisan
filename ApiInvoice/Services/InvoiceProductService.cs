@@ -35,6 +35,7 @@ public class InvoiceProductService : IInvoiceProductService
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
         EnsureInvoiceIsOpen(invoice);
+        TouchInvoiceForConcurrencyCheck(invoice);
 
         var existingItems = await _context.InvoiceProducts
             .Where(p => p.InvoiceId == invoiceId)
@@ -123,6 +124,7 @@ public class InvoiceProductService : IInvoiceProductService
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
         EnsureInvoiceIsOpen(invoice);
+        TouchInvoiceForConcurrencyCheck(invoice);
 
         var existingItems = await _context.InvoiceProducts
             .Where(p => p.InvoiceId == invoiceId)
@@ -284,6 +286,13 @@ public class InvoiceProductService : IInvoiceProductService
         {
             throw new ValidationException("Nota fiscal fechada não pode ser alterada.");
         }
+    }
+
+    private void TouchInvoiceForConcurrencyCheck(Invoice invoice)
+    {
+        _context.Entry(invoice)
+            .Property(i => i.UpdatedAt)
+            .IsModified = true;
     }
 
     private sealed record ProductApiResponse(

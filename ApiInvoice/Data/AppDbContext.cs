@@ -67,6 +67,10 @@ public class AppDbContext : DbContext, IIdempotencyDbContext
 
             entity.Property(i => i.ClosedAt)
                 .HasColumnName("closed_at");
+                
+            entity.Property(i => i.Xmin)
+                .HasColumnName("xmin")
+                .IsRowVersion();
 
             entity.HasMany(i => i.Products)
                 .WithOne(p => p.Invoice)
