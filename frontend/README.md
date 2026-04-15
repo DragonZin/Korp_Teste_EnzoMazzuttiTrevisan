@@ -1,59 +1,80 @@
-# Frontend
+# Frontend (Angular)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
+Interface web para gestão comercial, integrada às APIs de Produtos e Notas Fiscais via API Gateway.
 
-## Development server
+## Tecnologias
 
-To start a local development server, run:
+- Angular 21
+- TypeScript
+- Bootstrap (estilos/layout)
+- HttpClient + interceptor para `Idempotency-Key`
+
+## Funcionalidades relevantes
+
+- **Dashboard inicial** com atalhos para módulos de produtos e notas.
+- **Monitor de saúde** no cabeçalho com status agregado:
+  - API Produtos
+  - Banco Produtos
+  - API Notas
+  - Banco Notas
+- **Módulo de produtos**:
+  - listagem paginada;
+  - busca e recarregamento;
+  - criação/edição em modal;
+  - exclusão;
+  - KPIs da página (total, estoque e disponível);
+  - badge visual de disponibilidade.
+- **Módulo de notas**:
+  - listagem paginada com filtro por status;
+  - criação, exclusão e fechamento de nota;
+  - navegação para detalhe e impressão.
+- **Detalhe da nota**:
+  - edição de dados do cliente (nome/documento);
+  - gestão de itens (adicionar, ajustar quantidade, remover);
+  - catálogo paginado para inclusão de produtos.
+- **Tela de impressão**:
+  - versão otimizada para impressão da nota;
+  - ação de imprimir e fechamento direto da nota.
+- **Tratamento de erro amigável** para respostas `problem+json`.
+
+## Endereços e integração
+
+Em ambiente Docker Compose, o acesso principal é pelo gateway:
+
+- Frontend: `http://localhost:8080/`
+- Produtos: `http://localhost:8080/api/products`
+- Notas: `http://localhost:8080/api/invoices`
+
+Em desenvolvimento local com Angular CLI:
+
+- Frontend: `http://localhost:4200/`
+
+## Rodando em desenvolvimento
+
+No diretório `frontend/`:
 
 ```bash
-ng serve
+npm install
+npm run start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Depois, abra `http://localhost:4200/`.
 
-## Code scaffolding
+> Se necessário, ajuste o alvo de API em `src/app/core/api/api.config.ts` e/ou use proxy local (`proxy.conf.json`).
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Build
 
 ```bash
-ng generate component component-name
+npm run build
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Testes
 
 ```bash
-ng generate --help
+npm run test
 ```
 
-## Building
+## Observações
 
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- O frontend envia `Idempotency-Key` automaticamente quando a chamada usa o contexto apropriado.
+- Para comportamento completo de estoque/reserva, execute junto com `ApiProduct` e `ApiInvoice`.

@@ -1,6 +1,6 @@
 # API de Produtos (ApiProduct)
 
-Microserviço responsável pelo cadastro e consulta de produtos.
+Microserviço responsável pelo cadastro, consulta e controle de estoque de produtos.
 
 ## Base URL
 
@@ -40,9 +40,10 @@ Resposta paginada:
       "id": "8a95e9f9-7f4b-4d10-b72e-9aa8070abcc9",
       "code": "SKU-001",
       "name": "Teclado Mecânico",
-      "stock": 25,
+      "reservedStock": 5,
       "availableQuantity": 20,
-      "price": 249.90
+      "price": 249.90,
+      "isDeleted": false
     }
   ],
   "page": 1,
@@ -95,23 +96,58 @@ Body (envie ao menos 1 campo):
 ### Excluir produto (soft delete)
 - `DELETE /api/products/{id}`
 
-## Rota interna (integração entre serviços)
+## Rotas internas (integração entre serviços)
 
-### Ajustar estoque por delta
+### Ajuste unificado de inventário
 - `PUT /api/products/internal/{id}/inventory`
-- Uso interno da `ApiInvoice` no fechamento da nota.
+- Permite ajustar em uma única chamada:
+  - `stockDelta` (baixa/entrada física)
+  - `reservedStockDelta` (reserva/liberação)
 
 Body:
 ```json
 {
-  "stockDelta": -2
+  "stockDelta": -2,
+  "reservedStockDelta": -2
 }
 ```
+
+### Reserva explícita
+- `PUT /api/products/internal/{id}/reserve`
+
+Body:
+```json
+{
+  "quantity": 2
+}
+```
+
+### Liberação explícita de reserva
+- `PUT /api/products/internal/{id}/release`
+
+Body:
+```json
+{
+  "quantity": 2
+}
+```
+
+### Commit explícito de reserva em estoque
+- `PUT /api/products/internal/{id}/commit`
+
+Body:
+```json
+{
+  "quantity": 2
+}
+```
+
+> Essas rotas são internas para integração entre serviços e não devem ser expostas para clientes externos.
 
 ## Idempotência
 
 - Header: `Idempotency-Key`
-- Aplicado em: `POST /api/products`
+- Aplicado em: `POST /api/products` e nas operações internas de ajuste de inventário acionadas pela ApiInvoice.
 - Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
 
 ## Regras relevantes
@@ -119,10 +155,11 @@ Body:
 - `Code` é obrigatório, único (entre produtos não excluídos) e com até 50 caracteres.
 - `Name` é obrigatório e com até 255 caracteres.
 - `Stock` e `Price` não podem ser negativos.
-- `AvailableQuantity` é retornado nas respostas de consulta e representa a quantidade disponível atual do produto.
+- `ReservedStock` não pode ficar negativo.
+- `AvailableQuantity` é derivado de `stock - reservedStock`.
 - Exclusão é lógica (`is_deleted = true`).
-- Atualizações de estoque usam concorrência otimista (token `xmin` do PostgreSQL via EF Core) para evitar inconsistência em disputa simultânea.
-- Em conflito de concorrência, a API responde erro amigável de conflito (`409`) orientando atualização dos dados e nova tentativa.
+- Atualizações usam concorrência otimista com token `xmin` (PostgreSQL/EF Core).
+- Em conflito de concorrência, a API responde erro amigável de conflito (`409`) orientando nova tentativa.
 
 ## Padrão de erro
 

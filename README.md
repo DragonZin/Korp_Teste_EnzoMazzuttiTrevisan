@@ -19,7 +19,7 @@ Também inclui um **API Gateway (NGINX)** para centralizar o acesso e entregar o
 ## Pré-requisitos
 
 - Docker + Docker Compose
-- (Opcional para rodar sem Docker) .NET SDK 10
+- (Opcional para rodar sem Docker) .NET SDK 10 e Node.js 22+
 
 ## Subir tudo com Docker Compose
 
@@ -45,16 +45,18 @@ Serviços publicados:
 - Nota Fiscal
   - `http://localhost:8080/api/invoices/health`
 
-## Funcionalidades documentadas
+## Funcionalidades relevantes
 
-- **Idempotência por header `Idempotency-Key`** para operações críticas (criação de produto, criação de nota e fechamento de nota).
+- **Idempotência por header `Idempotency-Key`** para operações críticas.
 - **Paginação padronizada** com `items`, `page`, `pageSize`, `totalItems` e `totalPages`.
 - **Tratamento de erro padronizado (`application/problem+json`)** com `traceId` e `timestamp`.
 - **Healthcheck com status degradado (`503`)** quando não há conexão com banco.
 - **Migração automática de banco no startup** das APIs.
-- **Resiliência HTTP na ApiInvoice para chamadas à ApiProduct** com Polly (`retry`, `timeout` e `circuit breaker`) em configuração conservadora.
-- **Compensação síncrona simples no fechamento de nota**: se uma baixa de estoque falhar no meio, as baixas já aplicadas são revertidas e o fechamento é abortado.
-- **Concorrência otimista no estoque da ApiProduct** usando `xmin` (PostgreSQL/EF Core) para evitar inconsistência em atualizações simultâneas.
+- **Resiliência HTTP na ApiInvoice para chamadas à ApiProduct** com Polly (`retry`, `timeout` e `circuit breaker`).
+- **Reserva de estoque em notas abertas**: ao adicionar/editar itens da nota, a reserva é ajustada na ApiProduct (`reservedStock`).
+- **Compensação síncrona em operações de estoque** (itens, fechamento e exclusão de nota), com reversão dos deltas já aplicados em caso de falha parcial.
+- **Fluxo de fechamento com commit de estoque**: ao fechar a nota, há baixa do `stock` e liberação da reserva em uma única operação de ajuste.
+- **Frontend Angular com gestão completa** de produtos e notas (listagem, filtros, paginação, edição, fechamento e tela de impressão).
 
 ## Rodar localmente sem Docker (APIs)
 
@@ -74,7 +76,8 @@ Serviços publicados:
 ## Observações
 
 - As APIs possuem endpoint `/health` para verificação básica de conectividade com banco.
-- A API de nota fiscal depende da API de produtos para carregar dados de produto durante inclusão de itens e para baixar estoque no fechamento.
+- A API de nota fiscal depende da API de produtos para carregar catálogo, reservar estoque, liberar reserva e efetivar baixa no fechamento.
 - Para detalhes de payloads e regras de negócio, veja:
   - `ApiProduct/README.md`
   - `ApiInvoice/README.md`
+  - `frontend/README.md`

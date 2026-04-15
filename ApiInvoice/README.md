@@ -87,6 +87,7 @@ Body:
 - Aplicado em:
   - `POST /api/invoices`
   - `PUT /api/invoices/{id}/close`
+  - operações internas de ajuste de reserva/estoque disparadas durante `PATCH /items`, `DELETE item` e `DELETE invoice`
 - Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
 
 ## Regras relevantes
@@ -97,24 +98,36 @@ Body:
 - Inclusão de itens consulta a API de Produtos em lote (`POST /api/products/batch`).
 - `ProductId` duplicado no mesmo PATCH é inválido.
 - `Quantity` não pode ser negativa.
-- A disponibilidade de estoque é calculada sob demanda: `Stock - soma(Quantity em outras notas Open para o mesmo produto)`.
-- O fechamento da nota reduz apenas o `Stock` dos produtos da nota, chamando a rota interna de inventário da API de produtos.
+- Cada alteração de itens ajusta **reserva de estoque** (`reservedStock`) na ApiProduct.
+- O fechamento da nota aplica baixa de estoque físico (`stock`) e baixa de reserva (`reservedStock`) para os itens da nota.
+- A exclusão de nota aberta libera as reservas existentes antes de remover a nota.
 - As chamadas HTTP para a ApiProduct usam resiliência com Polly: retry curto, timeout e circuit breaker.
 
-## Fluxo de estoque
+## Fluxo de estoque/reserva
 
 1. **PATCH /items**:
-   - valida disponibilidade consultando notas abertas no banco da ApiInvoice;
-   - cria/atualiza itens da nota sem persistir reserva agregada no produto.
+   - valida a nota e os produtos;
+   - calcula delta por item (novo - anterior);
+   - aplica ajuste de `reservedStock` na ApiProduct;
+   - persiste itens e total da nota;
+   - em falha parcial, executa compensação reversa dos deltas já aplicados.
+
 2. **DELETE item**:
    - remove o item da nota;
-   - não aciona atualização de estoque na API de produtos.
+   - libera a reserva correspondente (`reservedStockDelta` negativo);
+   - em falha parcial, executa compensação.
+
 3. **PUT /close**:
-   - valida consistência de `Stock` para os itens da nota;
-   - baixa estoque físico (`Stock`) via endpoint interno da ApiProduct;
-   - se uma baixa falhar após baixas anteriores já aplicadas, executa compensação síncrona (rollback por delta inverso em ordem reversa);
-   - em caso de falha no processo, o fechamento é abortado e a nota permanece sem fechamento definitivo;
+   - valida consistência de reserva e estoque para os itens da nota;
+   - aplica ajuste combinado (`stockDelta` e `reservedStockDelta`) na ApiProduct;
+   - em falha parcial, executa compensação síncrona;
    - marca nota como `Closed` e preenche `ClosedAt`.
+
+4. **DELETE /{id}**:
+   - disponível apenas para nota aberta;
+   - libera reservas dos itens;
+   - remove a nota;
+   - em falha parcial, executa compensação.
 
 ## Padrão de erro
 
