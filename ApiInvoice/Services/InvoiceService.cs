@@ -7,6 +7,7 @@ using ApiInvoice.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 
 namespace ApiInvoice.Services;
 
@@ -143,9 +144,9 @@ public class InvoiceService : IInvoiceService
                     throw new NotFoundException($"Produto {productEntry.Key} não encontrado.");
                 }
 
-                if (product.Stock < productEntry.Value)
+                if (product.ReservedStock < productEntry.Value || product.Stock + (-productEntry.Value) < 0)
                 {
-                    throw new ValidationException($"Estoque insuficiente para o produto {productEntry.Key}.");
+                    throw new ValidationException($"reserva/estoque insuficiente para o produto {productEntry.Key}.");
                 }
             }
 
@@ -267,7 +268,6 @@ public class InvoiceService : IInvoiceService
             var appliedAdjustment = appliedAdjustments[i];
 
             try
-            try
             {
                 await AdjustProductInventoryAsync(
                     appliedAdjustment.ProductId,
@@ -363,6 +363,12 @@ public class InvoiceService : IInvoiceService
 
     private sealed record ProductApiResponse(
         Guid Id,
-        int Stock
-    );
+        int Stock,
+        int ReservedStock,
+        [property: JsonPropertyName("AvailableStock")] int? AvailableStock = null,
+        [property: JsonPropertyName("AvailableQuantity")] int? AvailableQuantity = null
+    )
+    {
+        public int? ResolvedAvailableStock => AvailableStock ?? AvailableQuantity;
+    }
 }
