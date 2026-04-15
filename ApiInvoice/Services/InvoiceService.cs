@@ -194,14 +194,50 @@ public class InvoiceService : IInvoiceService
 
     public async Task DeleteInvoiceAsync(Guid id)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var invoice = await _context.Invoices
+            .Include(i => i.Products)
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
-        
+
         EnsureInvoiceIsOpen(invoice);
 
-        _context.Invoices.Remove(invoice);
-        await _context.SaveChangesAsync();
+        var totalQuantitiesByProduct = invoice.Products
+            .GroupBy(i => i.ProductId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+        var appliedAdjustments = new List<(Guid ProductId, int StockDelta, int ReservedStockDelta)>();
+
+        try
+        {
+            foreach (var productEntry in totalQuantitiesByProduct)
+            {
+                var stockDelta = 0;
+                var reservedStockDelta = -productEntry.Value;
+
+                await AdjustProductInventoryAsync(
+                    productEntry.Key,
+                    stockDelta: stockDelta,
+                    reservedStockDelta: reservedStockDelta,
+                    idempotencyKey: BuildDeleteInventoryAdjustmentIdempotencyKey(
+                        id,
+                        productEntry.Key,
+                        stockDelta,
+                        reservedStockDelta));
+
+                appliedAdjustments.Add((productEntry.Key, stockDelta, reservedStockDelta));
+            }
+
+            _context.Invoices.Remove(invoice);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await CompensateInventoryAdjustmentsAsync(appliedAdjustments);
+            throw new ValidationException("Não foi possível excluir a nota fiscal. As reservas de estoque aplicadas foram compensadas.");
+        }
     }
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
@@ -305,6 +341,13 @@ public class InvoiceService : IInvoiceService
         int index)
         => $"invoice-close-compensation:product:{productId}:stock:{stockDelta}:reserved:{reservedStockDelta}:idx:{index}";
 
+     private static string BuildDeleteInventoryAdjustmentIdempotencyKey(
+        Guid invoiceId,
+        Guid productId,
+        int stockDelta,
+        int reservedStockDelta)
+        => $"invoice-delete:{invoiceId}:product:{productId}:stock:{stockDelta}:reserved:{reservedStockDelta}";
+        
     private static string BuildInventoryAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int stockDelta)
         => $"invoice-close:{invoiceId}:product:{productId}:stock:{stockDelta}";
 
