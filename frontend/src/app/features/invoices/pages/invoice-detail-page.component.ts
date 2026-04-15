@@ -191,6 +191,9 @@ import { ProductsTableComponent } from '../../products/components/products-table
       [closeOnBackdropClick]="!isAddingProduct()"
       (closed)="closeAddProductModal()"
     >
+        <div *ngIf="addProductModalError() as addProductError" class="alert alert-danger" role="alert">
+          {{ addProductError }}
+        </div>
 
         <div *ngIf="isLoadingProductsCatalog()" class="small text-body-secondary mb-2">Carregando catálogo...</div>
 
@@ -285,6 +288,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
+  protected readonly addProductModalError = signal<string | null>(null);
   protected readonly productNamesById = signal<Record<string, string>>({});
   protected readonly productCodesById = signal<Record<string, string>>({});
   protected readonly isEditingCustomerName = signal(false);
@@ -492,6 +496,7 @@ export class InvoiceDetailPageComponent implements OnInit {
 
     this.errorMessage.set(null);
     this.successMessage.set(null);
+    this.addProductModalError.set(null);
     this.clearAddProductSelection();
     this.isAddProductModalOpen.set(true);
     this.loadProductsCatalog();
@@ -503,11 +508,13 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     this.clearAddProductSelection();
+    this.addProductModalError.set(null);
     this.isAddProductModalOpen.set(false);
   }
 
   protected selectProductToAdd(product: Product): void {
     this.errorMessage.set(null);
+    this.addProductModalError.set(null);
     this.successMessage.set(null);
     const productId = product.id;
 
@@ -550,11 +557,11 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected commitSelectedProductQuantity(productId: string, rawValue: string | number): void {
     const parsedQuantity = this.normalizeQuantity(rawValue);
     if (parsedQuantity === null) {
-      this.errorMessage.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
+      this.addProductModalError.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
       return;
     }
 
-    this.errorMessage.set(null);
+    this.addProductModalError.set(null);
     this.selectedProductQuantitiesToAdd.update((selectedQuantities) => ({
       ...selectedQuantities,
       [productId]: parsedQuantity
@@ -594,14 +601,14 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     if (!this.canManageItems(invoice)) {
-      this.errorMessage.set('Nota fiscal fechada não pode ser alterada.');
+      this.addProductModalError.set('Nota fiscal fechada não pode ser alterada.');
       return;
     }
 
     const selectedProductIds = this.selectedProductIdsToAdd().map((productId) => productId.trim()).filter(Boolean);
 
     if (selectedProductIds.length === 0) {
-      this.errorMessage.set('Selecione ao menos um produto para adicionar na nota.');
+      this.addProductModalError.set('Selecione ao menos um produto para adicionar na nota fiscal.');
       return;
     }
 
@@ -609,7 +616,7 @@ export class InvoiceDetailPageComponent implements OnInit {
       invoice.products.some((item) => item.productId === productId)
     ));
     if (duplicatedIds.length > 0) {
-      this.errorMessage.set('Um ou mais produtos selecionados já estão na nota fiscal. Ajuste a seleção e tente novamente.');
+      this.addProductModalError.set('Um ou mais produtos selecionados já estão na nota fiscal. Ajuste a seleção e tente novamente.');
       return;
     }
 
@@ -621,6 +628,7 @@ export class InvoiceDetailPageComponent implements OnInit {
 
     this.isAddingProduct.set(true);
     this.errorMessage.set(null);
+    this.addProductModalError.set(null);
     this.successMessage.set(null);
 
     this.invoicesApiService
@@ -632,11 +640,12 @@ export class InvoiceDetailPageComponent implements OnInit {
         next: (updatedInvoice) => {
           this.handleInvoiceUpdated(updatedInvoice);
           this.clearAddProductSelection();
+          this.addProductModalError.set(null);
           this.isAddProductModalOpen.set(false);
           this.successMessage.set('Produtos adicionados à nota fiscal com sucesso.');
         },
         error: (error: HttpErrorResponse) => {
-          this.errorMessage.set(this.getFriendlyErrorMessage(error));
+          this.addProductModalError.set(this.getFriendlyErrorMessage(error));
         }
       });
   }
@@ -832,7 +841,6 @@ export class InvoiceDetailPageComponent implements OnInit {
   private clearAddProductSelection(): void {
     this.selectedProductIdsToAdd.set([]);
     this.selectedProductQuantitiesToAdd.set({});
-    this.errorMessage.set(null);
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
