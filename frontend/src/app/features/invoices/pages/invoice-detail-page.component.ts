@@ -232,6 +232,7 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
                 <th class="text-end">Estoque</th>
                 <th class="text-end">Qtd. disponível</th>
                 <th class="text-end">Preço</th>
+                <th class="text-end">Quantidade</th>
                 <th class="text-end">Ação</th>
               </tr>
             </thead>
@@ -242,6 +243,18 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
                 <td class="text-end">{{ product.stock }}</td>
                 <td class="text-end">{{ product.availableQuantity }}</td>
                 <td class="text-end">{{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</td>
+                <td class="text-end">
+                  <ng-container *ngIf="isProductSelectedToAdd(product.id); else unselectedCatalogProduct">
+                    <app-quantity-stepper
+                      [value]="getSelectedProductQuantity(product.id)"
+                      [min]="1"
+                      [disabled]="isAddingProduct()"
+                      inputAriaLabel="Quantidade para adicionar do produto {{ product.name }}"
+                      (commit)="commitSelectedProductQuantity(product.id, $event)"
+                    />
+                  </ng-container>
+                  <ng-template #unselectedCatalogProduct>-</ng-template>
+                </td>
                 <td class="text-end">
                 <div class="form-check d-inline-flex justify-content-end m-0">
                     <input
@@ -256,7 +269,7 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
                 </td>
               </tr>
               <tr *ngIf="!isLoadingProductsCatalog() && productsCatalog().length === 0">
-                <td colspan="6" class="text-center text-body-secondary py-4">Nenhum produto disponível no catálogo.</td>
+                <td colspan="7" class="text-center text-body-secondary py-4">Nenhum produto disponível no catálogo.</td>
               </tr>
             </tbody>
           </table>
@@ -302,7 +315,7 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
               <p class="mb-1 fw-semibold">{{ getAddProductSelectionSummary() }}</p>
-              <p class="text-body-secondary mb-0 small">Será adicionada quantidade padrão de 1 unidade para cada item selecionado.</p>
+              <p class="text-body-secondary mb-0 small">Defina a quantidade para cada item selecionado antes de confirmar.</p>
             </div>
             <div>
               <button
@@ -344,6 +357,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly productsCatalog = signal<Product[]>([]);
   protected readonly isLoadingProductsCatalog = signal(false);
   protected readonly selectedProductIdsToAdd = signal<string[]>([]);
+  protected readonly selectedProductQuantitiesToAdd = signal<Record<string, number>>({});
   protected readonly isAddProductModalOpen = signal(false);
   protected readonly catalogPage = signal(1);
   protected readonly catalogPageSize = signal(10);
@@ -558,11 +572,25 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected selectProductToAdd(product: Product): void {
     this.errorMessage.set(null);
     this.successMessage.set(null);
+    const productId = product.id;
+
     this.selectedProductIdsToAdd.update((selectedIds) => (
-      selectedIds.includes(product.id)
-        ? selectedIds.filter((selectedId) => selectedId !== product.id)
-        : [...selectedIds, product.id]
+      selectedIds.includes(productId)
+        ? selectedIds.filter((selectedId) => selectedId !== productId)
+        : [...selectedIds, productId]
     ));
+
+    this.selectedProductQuantitiesToAdd.update((selectedQuantities) => {
+      if (productId in selectedQuantities) {
+        const { [productId]: _, ...remainingQuantities } = selectedQuantities;
+        return remainingQuantities;
+      }
+
+      return {
+        ...selectedQuantities,
+        [productId]: 1
+      };
+    });
   }
 
   protected isProductSelectedToAdd(productId: string): boolean {
@@ -576,6 +604,24 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     return `${totalSelected} ${totalSelected === 1 ? 'produto selecionado' : 'produtos selecionados'}`;
+  }
+
+  protected getSelectedProductQuantity(productId: string): number {
+    return this.selectedProductQuantitiesToAdd()[productId] ?? 1;
+  }
+
+  protected commitSelectedProductQuantity(productId: string, rawValue: string | number): void {
+    const parsedQuantity = this.normalizeQuantity(rawValue);
+    if (parsedQuantity === null) {
+      this.errorMessage.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.selectedProductQuantitiesToAdd.update((selectedQuantities) => ({
+      ...selectedQuantities,
+      [productId]: parsedQuantity
+    }));
   }
 
   protected goToPreviousCatalogPage(): void {
@@ -639,7 +685,11 @@ export class InvoiceDetailPageComponent implements OnInit {
       return;
     }
 
-    const products = selectedProductIds.map((productId) => ({ productId, quantity: 1 }));
+    const selectedProductQuantities = this.selectedProductQuantitiesToAdd();
+    const products = selectedProductIds.map((productId) => ({
+      productId,
+      quantity: selectedProductQuantities[productId] ?? 1
+    }));
 
     this.isAddingProduct.set(true);
     this.errorMessage.set(null);
@@ -888,6 +938,7 @@ export class InvoiceDetailPageComponent implements OnInit {
 
   private clearAddProductSelection(): void {
     this.selectedProductIdsToAdd.set([]);
+    this.selectedProductQuantitiesToAdd.set({});
     this.errorMessage.set(null);
   }
 
