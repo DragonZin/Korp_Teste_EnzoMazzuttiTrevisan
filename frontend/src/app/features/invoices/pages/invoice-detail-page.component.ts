@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -21,7 +21,7 @@ import { ProductsApiService } from '../../products/data/products-api.service';
             <p class="text-body-secondary mb-0">Visualização e edição da nota fiscal.</p>
           </div>
           <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-primary btn-sm" (click)="printDetails()">Imprimir detalhes</button>
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="printDetails()">Imprimir</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar para notas</button>
           </div>
         </div>
@@ -112,19 +112,9 @@ import { ProductsApiService } from '../../products/data/products-api.service';
       </div>
     </section>
   `,
-  styles: [`
-    @media print {
-      .no-print {
-        display: none !important;
-      }
-
-      .invoice-print-area {
-        margin: 0;
-      }
-    }
-  `]
+  styleUrl: './invoice-detail-page.component.scss',
 })
-export class InvoiceDetailPageComponent implements OnInit {
+export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
@@ -150,11 +140,21 @@ export class InvoiceDetailPageComponent implements OnInit {
     this.loadInvoice(id);
   }
 
+  ngOnDestroy(): void {
+    this.disablePrintMode();
+  }
+
   protected goBack(): void {
     void this.router.navigate(['/invoices']);
   }
 
   protected printDetails(): void {
+    if (!this.invoice()) {
+      return;
+    }
+
+    this.enablePrintMode();
+    window.addEventListener('afterprint', () => this.disablePrintMode(), { once: true });
     window.print();
   }
 
@@ -237,5 +237,13 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     return 'Não foi possível carregar a nota fiscal no momento. Tente novamente em instantes.';
+  }
+
+  private enablePrintMode(): void {
+    document.body.classList.add('invoice-print-mode');
+  }
+
+  private disablePrintMode(): void {
+    document.body.classList.remove('invoice-print-mode');
   }
 }

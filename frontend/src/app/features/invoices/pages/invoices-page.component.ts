@@ -99,7 +99,6 @@ import { Invoice } from '../models/invoice.model';
                         type="button"
                         class="btn btn-outline-danger btn-sm"
                         (click)="deleteInvoice(invoice)"
-                        (click)="printInvoice(invoice)"
                         [disabled]="isActionInProgress(invoice.id)"
                       >
                         {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
@@ -116,6 +115,7 @@ import { Invoice } from '../models/invoice.model';
                         type="button"
                         class="btn btn-outline-secondary btn-sm"
                         [disabled]="isActionInProgress(invoice.id)"
+                        (click)="printInvoice(invoice)"
                         aria-label="Imprimir nota fiscal"
                       >
                         Imprimir
@@ -152,57 +152,7 @@ import { Invoice } from '../models/invoice.model';
       </div>
     </section>
   `,
-  styles: [`
-    .invoice-status-badge {
-      min-width: 5.5rem;
-      font-weight: 600;
-    }
-
-    .invoice-status-open {
-      background-color: var(--bs-success-bg-subtle);
-      color: var(--bs-success-text-emphasis);
-    }
-
-    .invoice-status-closed {
-      background-color: var(--bs-secondary-bg-subtle);
-      color: var(--bs-secondary-text-emphasis);
-    }
-
-    @media (max-width: 767.98px) {
-      .invoice-table thead {
-        display: none;
-      }
-
-      .invoice-table,
-      .invoice-table tbody,
-      .invoice-table tr,
-      .invoice-table td {
-        display: block;
-        width: 100%;
-      }
-
-      .invoice-table tr {
-        padding: 0.75rem;
-        border-bottom: 1px solid var(--bs-border-color);
-      }
-
-      .invoice-table td {
-        border: 0;
-        padding: 0.35rem 0;
-        text-align: left !important;
-      }
-
-      .invoice-table td::before {
-        content: attr(data-label);
-        display: block;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--bs-secondary-color);
-        margin-bottom: 0.15rem;
-      }
-    }
-  `]
+  styleUrl: './invoices-page.component.scss',
 })
 export class InvoicesPageComponent implements OnInit {
   private readonly invoicesApiService = inject(InvoicesApiService);
@@ -344,7 +294,7 @@ export class InvoicesPageComponent implements OnInit {
     const dateToFormat = invoice.status === 2 && invoice.closedAt ? invoice.closedAt : invoice.createdAt;
     return new Date(dateToFormat);
   }
-  
+
   printInvoice(invoice: Invoice): void {
     void this.router.navigate(['/invoices', invoice.id], {
       queryParams: { autoPrint: '1' }

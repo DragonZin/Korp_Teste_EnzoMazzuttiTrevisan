@@ -1,1 +1,18 @@
 /* You can add global styles to this file, and also import other style files */
+@media print {
+  body.invoice-print-mode app-root > .min-vh-100 {
+    background: #fff !important;
+  }
+
+  body.invoice-print-mode app-root > .min-vh-100 > header {
+    display: none !important;
+  }
+
+  body.invoice-print-mode app-root > .min-vh-100 > main {
+    padding: 0 !important;
+  }
+
+  body.invoice-print-mode app-root > .min-vh-100 > main > *:not(app-invoice-detail-page) {
+    display: none !important;
+  }
+}
