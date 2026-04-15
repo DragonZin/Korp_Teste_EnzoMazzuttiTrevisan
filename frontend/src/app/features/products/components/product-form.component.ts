@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, effect, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
+import { FieldValidationMessages, getFirstControlErrorMessage, hasControlError } from '../../../core/forms/form-error.util';
 import { CreateProductRequest } from '../models/create-product-request.model';
 import { Product } from '../models/product.model';
 import { UpdateProductRequest } from '../models/update-product-request.model';
@@ -116,6 +117,22 @@ export class ProductFormComponent {
     price: [0, [Validators.required, Validators.min(0)]],
   });
 
+  private readonly fieldMessages: FieldValidationMessages<keyof CreateProductRequest> = {
+    code: {
+      maxlength: 'Código deve ter no máximo 50 caracteres.',
+    },
+    name: {
+      maxlength: 'Nome deve ter no máximo 255 caracteres.',
+    },
+    stock: {
+      pattern: 'Estoque deve ser um número inteiro.',
+      min: 'Valor não pode ser negativo.',
+    },
+    price: {
+      min: 'Valor não pode ser negativo.',
+    },
+  };
+
   constructor() {
     effect(() => {
       const product = this.product();
@@ -130,40 +147,16 @@ export class ProductFormComponent {
   }
 
   hasControlError(controlName: keyof CreateProductRequest): boolean {
-    const control = this.form.controls[controlName];
-
-    return !!((control.touched || control.dirty) && control.invalid) || !!this.apiFieldErrors()[controlName];
+    return hasControlError(this.form.controls[controlName], this.apiFieldErrors()[controlName]);
   }
 
   getControlErrorMessage(controlName: keyof CreateProductRequest): string {
-    const control = this.form.controls[controlName];
-    const apiError = this.apiFieldErrors()[controlName];
-
-    if (apiError) {
-      return apiError;
-    }
-
-    if (control.hasError('required')) {
-      return 'Este campo é obrigatório.';
-    }
-
-    if (controlName === 'code' && control.hasError('maxlength')) {
-      return 'Código deve ter no máximo 50 caracteres.';
-    }
-
-    if (controlName === 'name' && control.hasError('maxlength')) {
-      return 'Nome deve ter no máximo 255 caracteres.';
-    }
-
-    if (controlName === 'stock' && control.hasError('pattern')) {
-      return 'Estoque deve ser um número inteiro.';
-    }
-
-    if (control.hasError('min')) {
-      return 'Valor não pode ser negativo.';
-    }
-
-    return 'Valor inválido.';
+    return getFirstControlErrorMessage({
+      control: this.form.controls[controlName],
+      field: controlName,
+      apiError: this.apiFieldErrors()[controlName],
+      fieldMessages: this.fieldMessages,
+    });
   }
 
   submit(): void {

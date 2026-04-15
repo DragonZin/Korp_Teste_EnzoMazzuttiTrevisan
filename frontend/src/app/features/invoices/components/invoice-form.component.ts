@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, input, output } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 
+import { FieldValidationMessages, getFirstControlErrorMessage, hasControlError } from '../../../core/forms/form-error.util';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 
 @Component({
@@ -92,44 +93,31 @@ export class InvoiceFormComponent {
     ],
   });
 
+  private readonly fieldMessages: FieldValidationMessages<keyof CreateInvoiceRequest> = {
+    customerName: {
+      maxlength: 'Nome deve ter no máximo 255 caracteres.',
+    },
+    customerDocument: {
+      minlength: 'Documento deve ter pelo menos 11 caracteres.',
+      maxlength: 'Documento deve ter no máximo 18 caracteres.',
+      documentFormat: 'Documento deve estar no formato CPF ou CNPJ válido.',
+    },
+  };
+
   hasControlError(controlName: keyof CreateInvoiceRequest): boolean {
-    const control = this.form.controls[controlName];
-    return !!((control.touched || control.dirty) && control.invalid) || !!this.apiFieldErrors()[controlName];
+    return hasControlError(this.form.controls[controlName], this.apiFieldErrors()[controlName]);
   }
 
   getControlErrorMessage(controlName: keyof CreateInvoiceRequest): string {
-    const control = this.form.controls[controlName];
-    const apiError = this.apiFieldErrors()[controlName];
-
-    if (apiError) {
-      return apiError;
-    }
-
-    if (control.hasError('required') || control.hasError('trimRequired')) {
-      return 'Este campo é obrigatório.';
-    }
-
-    if (controlName === 'customerName' && control.hasError('maxlength')) {
-      return 'Nome deve ter no máximo 255 caracteres.';
-    }
-
-    if (controlName === 'customerDocument') {
-      if (control.hasError('minlength')) {
-        return 'Documento deve ter pelo menos 11 caracteres.';
-      }
-
-      if (control.hasError('maxlength')) {
-        return 'Documento deve ter no máximo 18 caracteres.';
-      }
-
-      if (control.hasError('documentFormat')) {
-        return 'Documento deve estar no formato CPF ou CNPJ válido.';
-      }
-    }
-
-    return 'Valor inválido.';
+    return getFirstControlErrorMessage({
+      control: this.form.controls[controlName],
+      field: controlName,
+      apiError: this.apiFieldErrors()[controlName],
+      fieldMessages: this.fieldMessages,
+      priority: ['required', 'trimRequired', 'documentFormat', 'minlength', 'maxlength', 'min', 'max', 'pattern'],
+    });
   }
-
+  
   submit(): void {
     this.form.markAllAsTouched();
 
