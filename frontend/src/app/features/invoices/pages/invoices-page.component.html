@@ -24,6 +24,7 @@
             [value]="selectedStatus()"
             (change)="onStatusChange($event)"
             [disabled]="isLoading()"
+
         >
             <option value="">Todos</option>
             <option value="1">Open</option>
@@ -49,80 +50,49 @@
     </div>
 
     <div class="card border-0 bg-body-tertiary">
-        <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 invoice-table">
-            <thead class="table-light">
-            <tr>
-                <th scope="col">Número</th>
-                <th scope="col">Cliente</th>
-                <th scope="col">Status</th>
-                <th scope="col">Data</th>
-                <th scope="col" class="text-end">Total</th>
-                <th scope="col" class="text-end">Ações</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr *ngFor="let invoice of invoices()">
-                <td data-label="Número">
-                <span class="fw-semibold">NF-{{ invoice.number }}</span>
-                </td>
-                <td data-label="Cliente">{{ invoice.customerName }}</td>
-                <td data-label="Status">
-                <span class="badge rounded-pill invoice-status-badge" [ngClass]="toInvoiceStatusClass(invoice.status)">
-                    {{ toInvoiceStatusLabel(invoice.status) }}
-                </span>
-                </td>
-                <td data-label="Data">{{ getRelevantInvoiceDate(invoice) | date: 'dd/MM/yyyy HH:mm' }}</td>
-                <td data-label="Total" class="text-end fw-semibold">{{ invoice.totalAmount | currency: 'BRL':'symbol':'1.2-2' }}</td>
-                <td data-label="Ações">
-                <div class="d-flex justify-content-end flex-wrap gap-2">
-                    <a
-                    class="btn btn-outline-primary btn-sm"
-                    [routerLink]="['/invoices', invoice.id]"
-                    [class.disabled]="isActionInProgress(invoice.id)"
-                    [attr.aria-disabled]="isActionInProgress(invoice.id)"
-                    >
-                    Editar
-                    </a>
-                    <button
-                    type="button"
-                    class="btn btn-outline-danger btn-sm"
-                    (click)="deleteInvoice(invoice)"
-                    [disabled]="isActionInProgress(invoice.id)"
-                    >
-                    {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
-                    </button>
-                    <button
-                    type="button"
-                    class="btn btn-outline-success btn-sm"
-                    (click)="closeInvoice(invoice)"
-                    [disabled]="invoice.status === 2 || isActionInProgress(invoice.id)"
-                    >
-                    {{ closingInvoiceId() === invoice.id ? 'Fechando...' : 'Fechar nota' }}
-                    </button>
-                    <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    [disabled]="isActionInProgress(invoice.id)"
-                    (click)="printInvoice(invoice)"
-                    aria-label="Imprimir nota fiscal"
-                    >
-                    Imprimir
-                    </button>
-                </div>
-                </td>
-            </tr>
-
-            <tr *ngIf="!isLoading() && invoices().length === 0">
-                <td colspan="6" class="py-4 text-center">
-                <p class="mb-1 fw-semibold">Nenhuma nota encontrada</p>
-                <p class="mb-0 text-body-secondary">Ajuste os filtros ou recarregue a lista.</p>
-                </td>
-            </tr>
-            </tbody>
-        </table>
-        </div>
+      <app-invoices-table
+        [invoices]="invoices()"
+        [isLoading]="isLoading()"
+        [emptyMessage]="'Nenhuma nota encontrada. Ajuste os filtros ou recarregue a lista.'"
+        [actionsTemplate]="actionsCellTemplate"
+      />
     </div>
+
+    <ng-template #actionsCellTemplate let-invoice>
+      <a
+        class="btn btn-outline-primary btn-sm"
+        [routerLink]="['/invoices', invoice.id]"
+        [class.disabled]="isActionInProgress(invoice.id)"
+        [attr.aria-disabled]="isActionInProgress(invoice.id)"
+      >
+        Editar
+      </a>
+      <button
+        type="button"
+        class="btn btn-outline-danger btn-sm"
+        (click)="deleteInvoice(invoice)"
+        [disabled]="isActionInProgress(invoice.id)"
+      >
+        {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-success btn-sm"
+        (click)="closeInvoice(invoice)"
+        [disabled]="invoice.status === 2 || isActionInProgress(invoice.id)"
+      >
+        {{ closingInvoiceId() === invoice.id ? 'Fechando...' : 'Fechar nota' }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        [disabled]="isActionInProgress(invoice.id)"
+        (click)="printInvoice(invoice)"
+        aria-label="Imprimir nota fiscal"
+      >
+        Imprimir
+      </button>
+    </ng-template>
 
     <app-pagination-controls
         [currentItemCount]="invoices().length"

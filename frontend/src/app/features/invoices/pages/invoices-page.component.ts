@@ -10,6 +10,7 @@ import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PaginatedListStore } from '../../../core/state/paginated-list.store';
 import { InvoiceFormComponent } from '../components/invoice-form.component';
+import { InvoicesTableComponent } from '../components/invoices-table.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 import { Invoice } from '../models/invoice.model';
@@ -19,7 +20,7 @@ import { toInvoiceStatusClass, toInvoiceStatusLabel } from '../utils/invoice-sta
 @Component({
   selector: 'app-invoices-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent, BaseModalComponent],
+  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent, BaseModalComponent, InvoicesTableComponent],
   templateUrl: './invoices-page.component.html',
   styleUrl: './invoices-page.component.scss',
 })
@@ -54,10 +55,6 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
   readonly createFieldErrors = signal<Partial<Record<keyof CreateInvoiceRequest, string>>>({});
   readonly createCustomerName = signal('');
   readonly createCustomerDocument = signal('');
-
-  protected readonly toInvoiceStatusLabel = toInvoiceStatusLabel;
-  protected readonly toInvoiceStatusClass = toInvoiceStatusClass;
-  protected readonly getRelevantInvoiceDate = getRelevantInvoiceDate;
 
   ngOnInit(): void {
     this.loadInvoices();

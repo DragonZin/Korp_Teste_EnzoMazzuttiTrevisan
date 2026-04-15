@@ -1,0 +1,66 @@
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0 invoice-table">
+    <thead class="table-light">
+      <tr>
+        <th scope="col">Número</th>
+        <th scope="col">Cliente</th>
+        <th scope="col">Status</th>
+        <th scope="col">Data</th>
+        <th scope="col" class="text-end">Total</th>
+        <th scope="col" class="text-end">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let invoice of invoices; trackBy: trackByInvoiceId">
+        <td data-label="Número">
+          <span class="fw-semibold">NF-{{ invoice.number }}</span>
+        </td>
+        <td data-label="Cliente">{{ invoice.customerName }}</td>
+
+        <td data-label="Status">
+          <ng-container
+            *ngIf="statusTemplate; else defaultStatus"
+            [ngTemplateOutlet]="statusTemplate"
+            [ngTemplateOutletContext]="{ $implicit: invoice, invoice: invoice }"
+          />
+          <ng-template #defaultStatus>
+            <span class="badge rounded-pill invoice-status-badge" [ngClass]="toInvoiceStatusClass(invoice.status)">
+              {{ toInvoiceStatusLabel(invoice.status) }}
+            </span>
+          </ng-template>
+        </td>
+
+        <td data-label="Data">
+          <ng-container
+            *ngIf="dateTemplate; else defaultDate"
+            [ngTemplateOutlet]="dateTemplate"
+            [ngTemplateOutletContext]="{ $implicit: invoice, invoice: invoice }"
+          />
+          <ng-template #defaultDate>
+            {{ getRelevantInvoiceDate(invoice) | date: 'dd/MM/yyyy HH:mm' }}
+          </ng-template>
+        </td>
+
+        <td data-label="Total" class="text-end fw-semibold">
+          {{ invoice.totalAmount | currency: 'BRL':'symbol':'1.2-2' }}
+        </td>
+
+        <td data-label="Ações">
+          <div class="d-flex justify-content-end flex-wrap gap-2">
+            <ng-container
+              *ngIf="actionsTemplate"
+              [ngTemplateOutlet]="actionsTemplate"
+              [ngTemplateOutletContext]="{ $implicit: invoice, invoice: invoice }"
+            />
+          </div>
+        </td>
+      </tr>
+
+      <tr *ngIf="!isLoading && invoices.length === 0">
+        <td colspan="6" class="py-4 text-center">
+          {{ emptyMessage }}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
