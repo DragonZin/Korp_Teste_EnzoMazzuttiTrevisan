@@ -55,7 +55,7 @@ export class PaginationControlsComponent {
   @Input({ required: true }) page = 1;
   @Input({ required: true }) totalPages = 1;
   @Input({ required: true }) pageSize = 10;
-  @Input({ required: true }) pageSizeOptions: ReadonlyArray<number> = [];
+  @Input({ required: true }) pageSizeOptions: ReadonlyArray<number> = [25,50,75,100];
   @Input() isLoading = false;
   @Input() pageSizeId = 'page-size';
   @Input() ariaLabel = 'Paginação';
@@ -67,10 +67,14 @@ export class PaginationControlsComponent {
   onPageSizeSelection(event: Event): void {
     const selectedPageSize = Number((event.target as HTMLSelectElement).value);
 
-    if (!Number.isFinite(selectedPageSize)) {
+    if (!this.isValidPageSizeSelection(selectedPageSize) || selectedPageSize === this.pageSize) {
       return;
     }
 
     this.pageSizeChange.emit(selectedPageSize);
+  }
+
+  private isValidPageSizeSelection(selectedPageSize: number): boolean {
+    return Number.isFinite(selectedPageSize) && this.pageSizeOptions.includes(selectedPageSize);
   }
 }

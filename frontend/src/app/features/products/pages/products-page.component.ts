@@ -178,9 +178,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
 })
 export class ProductsPageComponent implements OnInit {
   private readonly productsApiService = inject(ProductsApiService);
-  readonly pageSizeOptions = [25, 50, 75, 100] as const;
   readonly skeletonRows = Array.from({ length: 5 }, (_, index) => index);
-
   readonly products = signal<Product[]>([]);
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
@@ -259,10 +257,6 @@ export class ProductsPageComponent implements OnInit {
   }
 
   onPageSizeChange(nextPageSize: number): void {
-    if (!Number.isFinite(nextPageSize) || !this.pageSizeOptions.includes(nextPageSize as 25 | 50 | 75 | 100)) {
-      return;
-    }
-
     this.loadProductsBy(1, nextPageSize);
   }
   

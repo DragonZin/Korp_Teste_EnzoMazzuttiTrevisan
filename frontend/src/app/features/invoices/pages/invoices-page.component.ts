@@ -113,7 +113,6 @@ export class InvoicesPageComponent implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly page = signal(1);
   readonly pageSize = signal(10);
-  readonly pageSizeOptions = [10, 25, 50] as const;
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);
   readonly selectedStatus = signal<'1' | '2' | ''>('');
@@ -156,12 +155,8 @@ export class InvoicesPageComponent implements OnInit {
     this.selectedStatus.set(value);
     this.loadInvoices(1);
   }
-  
-  onPageSizeChange(nextPageSize: number): void {
-    if (!Number.isFinite(nextPageSize) || !this.pageSizeOptions.includes(nextPageSize as 10 | 25 | 50)) {
-      return;
-    }
 
+  onPageSizeChange(nextPageSize: number): void {
     this.pageSize.set(nextPageSize);
     this.loadInvoices(1);
   }
