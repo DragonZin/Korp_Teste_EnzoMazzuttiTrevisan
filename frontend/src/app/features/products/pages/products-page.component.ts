@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { finalize, Subscription } from 'rxjs';
 
+import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
@@ -447,16 +448,6 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
-    const problemDetails = error.error as Partial<ProblemDetails> | null;
-
-    if (problemDetails?.detail) {
-      return problemDetails.detail;
-    }
-
-    if (problemDetails?.title) {
-      return problemDetails.title;
-    }
-
-    return 'Não foi possível carregar os produtos no momento. Tente novamente em instantes.';
+    return mapHttpErrorMessage(error, { domain: 'products' });
   }
 }

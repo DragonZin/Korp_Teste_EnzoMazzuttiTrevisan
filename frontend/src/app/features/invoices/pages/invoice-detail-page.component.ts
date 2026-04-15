@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
 import { ProductsApiService } from '../../products/data/products-api.service';
@@ -872,19 +873,6 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
-    }
-
-    if (error.status === 404) {
-      return 'Nota fiscal não encontrada.';
-    }
-
-    if (typeof error.error?.detail === 'string' && error.error.detail.trim().length > 0) {
-      return error.error.detail;
-    }
-
-    return 'Não foi possível carregar a nota fiscal no momento. Tente novamente em instantes.';
+    return mapHttpErrorMessage(error, { domain: 'invoice-detail' });
   }
-
 }

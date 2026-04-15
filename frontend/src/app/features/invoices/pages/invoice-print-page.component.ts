@@ -4,6 +4,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { InvoiceProductLookupService } from '../data/invoice-product-lookup.service';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
@@ -214,19 +215,7 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
-    }
-
-    if (error.status === 404) {
-      return 'Nota fiscal não encontrada.';
-    }
-
-    if (typeof error.error?.detail === 'string' && error.error.detail.trim().length > 0) {
-      return error.error.detail;
-    }
-
-    return 'Não foi possível carregar a nota fiscal no momento. Tente novamente em instantes.';
+    return mapHttpErrorMessage(error, { domain: 'invoice-print' });
   }
 
   private enablePrintMode(): void {

@@ -4,6 +4,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
@@ -371,27 +372,11 @@ export class InvoicesPageComponent implements OnInit {
   }
   
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
-    }
-
-    if (typeof error.error?.detail === 'string' && error.error.detail.trim().length > 0) {
-      return error.error.detail;
-    }
-
-    return 'Não foi possível carregar as notas fiscais no momento. Tente novamente em instantes.';
+    return mapHttpErrorMessage(error, { domain: 'invoices' });
   }
 
   private getFriendlyCreateErrorMessage(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
-    }
-
-    if (typeof error.error?.detail === 'string' && error.error.detail.trim().length > 0) {
-      return error.error.detail;
-    }
-
-    return 'Não foi possível criar a nota fiscal no momento. Tente novamente em instantes.';
+    return mapHttpErrorMessage(error, { domain: 'invoices', operation: 'create' });
   }
 
   private clearCreateErrors(): void {
