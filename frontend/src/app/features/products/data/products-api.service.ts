@@ -73,6 +73,7 @@ export class ProductsApiService {
       ...product,
       price: normalizedPrice,
       availableQuantity: product.availableQuantity ?? product.stock,
+      isDeleted: product.isDeleted ?? undefined,
     };
   }
 
