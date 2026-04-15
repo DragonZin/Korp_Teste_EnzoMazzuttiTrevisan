@@ -44,41 +44,58 @@ public class InvoiceProductService : IInvoiceProductService
 
         var productsById = await GetProductsByIdsAsync(requestByProductId.Keys.ToList());
 
-        foreach (var itemRequest in request.Products)
+       var appliedReservationAdjustments = new List<(Guid ProductId, int ReservedStockDelta)>();
+
+        try
         {
-            if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
+            foreach (var itemRequest in request.Products)
             {
-                throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
+                if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
+                {
+                    throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
+                }
+
+                existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem);
+
+                var previousQuantity = existingItem?.Quantity ?? 0;
+                var quantityDelta = itemRequest.Quantity - previousQuantity;
+
+                if (quantityDelta != 0)
+                {
+                    await AdjustProductReservationAsync(itemRequest.ProductId, quantityDelta);
+                    appliedReservationAdjustments.Add((itemRequest.ProductId, quantityDelta));
+                }
+
+                if (existingItem is not null)
+                {
+                    existingItem.Quantity = itemRequest.Quantity;
+                    continue;
+                }
+
+                var newItem = new InvoiceProduct
+                {
+                    Id = Guid.NewGuid(),
+                    InvoiceId = invoiceId,
+                    ProductId = itemRequest.ProductId,
+                    UnitPrice = product.Price,
+                    Quantity = itemRequest.Quantity
+                };
+
+                _context.InvoiceProducts.Add(newItem);
+                existingItems.Add(newItem);
+                existingItemsByProductId[itemRequest.ProductId] = newItem;
             }
 
-            existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem);
+            invoice.TotalAmount = existingItems.Sum(p => p.TotalPrice);
 
-            await EnsureProductAvailabilityAsync(product, invoiceId, itemRequest.Quantity);
-
-            if (existingItem is not null)
-            {
-                existingItem.Quantity = itemRequest.Quantity;
-                continue;
-            }
-
-            var newItem = new InvoiceProduct
-            {
-                Id = Guid.NewGuid(),
-                InvoiceId = invoiceId,
-                ProductId = itemRequest.ProductId,
-                UnitPrice = product.Price,
-                Quantity = itemRequest.Quantity
-            };
-
-            _context.InvoiceProducts.Add(newItem);
-            existingItems.Add(newItem);
-            existingItemsByProductId[itemRequest.ProductId] = newItem;
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
-
-        invoice.TotalAmount = existingItems.Sum(p => p.TotalPrice);
-
-        await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
+        catch
+        {
+            await CompensateReservationAdjustmentsAsync(appliedReservationAdjustments);
+            throw;
+        }
 
         return await _invoiceService.GetInvoiceByIdAsync(invoiceId);
     }
@@ -105,38 +122,70 @@ public class InvoiceProductService : IInvoiceProductService
         var itemToRemove = existingItems.FirstOrDefault(p => p.ProductId == productId)
             ?? throw new NotFoundException($"Item com produto {productId} não encontrado na nota fiscal.");
 
-        _context.InvoiceProducts.Remove(itemToRemove);
-        existingItems.Remove(itemToRemove);
+        var appliedReservationAdjustments = new List<(Guid ProductId, int ReservedStockDelta)>();
 
-        invoice.TotalAmount = existingItems.Sum(p => p.TotalPrice);
-
-        await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
-    }
-
-    private async Task EnsureProductAvailabilityAsync(ProductApiResponse product, Guid currentInvoiceId, int requestedQuantity)
-    {
-        var reservedInOtherOpenInvoices = await GetReservedQuantityForOpenInvoicesAsync(product.Id, currentInvoiceId);
-        var availableStock = product.Stock - reservedInOtherOpenInvoices;
-
-        if (requestedQuantity > availableStock)
+        try
         {
-            var exception = new ValidationException("Estoque insuficiente para o produto informado.");
-            exception.Data["productId"] = product.Id;
-            exception.Data["requestedQuantity"] = requestedQuantity;
-            exception.Data["availableStock"] = availableStock;
+            if (itemToRemove.Quantity > 0)
+            {
+                await AdjustProductReservationAsync(productId, -itemToRemove.Quantity);
+                appliedReservationAdjustments.Add((productId, -itemToRemove.Quantity));
+            }
 
-            throw exception;
+            _context.InvoiceProducts.Remove(itemToRemove);
+            existingItems.Remove(itemToRemove);
+
+            invoice.TotalAmount = existingItems.Sum(p => p.TotalPrice);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await CompensateReservationAdjustmentsAsync(appliedReservationAdjustments);
+            throw;
         }
     }
 
-    private Task<int> GetReservedQuantityForOpenInvoicesAsync(Guid productId, Guid currentInvoiceId)
+    private async Task AdjustProductReservationAsync(Guid productId, int reservedStockDelta)
     {
-        return _context.InvoiceProducts
-            .Where(ip => ip.ProductId == productId)
-            .Where(ip => ip.InvoiceId != currentInvoiceId)
-            .Where(ip => ip.Invoice.Status == InvoiceStatus.Open)
-            .SumAsync(ip => ip.Quantity);
+        if (reservedStockDelta == 0)
+        {
+            return;
+        }
+
+        var client = _httpClientFactory.CreateClient("ProductApi");
+        var payload = new { StockDelta = 0, ReservedStockDelta = reservedStockDelta };
+        var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException($"Produto {productId} não encontrado.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"Não foi possível atualizar a reserva do produto {productId}.");
+        }
+    }
+
+    private async Task CompensateReservationAdjustmentsAsync(List<(Guid ProductId, int ReservedStockDelta)> appliedAdjustments)
+    {
+        for (var i = appliedAdjustments.Count - 1; i >= 0; i--)
+        {
+            var appliedAdjustment = appliedAdjustments[i];
+
+            try
+            {
+                await AdjustProductReservationAsync(
+                    appliedAdjustment.ProductId,
+                    reservedStockDelta: -appliedAdjustment.ReservedStockDelta);
+            }
+            catch
+            {
+                // Melhor esforço de compensação síncrona.
+            }
+        }
     }
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
