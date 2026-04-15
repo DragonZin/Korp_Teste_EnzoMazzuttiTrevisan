@@ -22,7 +22,9 @@ public class ProductService : IProductService
         var normalizedPage = page < 1 ? 1 : page;
         var normalizedPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
-        var query = _context.Products.AsNoTracking();
+        var query = _context.Products
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -59,7 +61,7 @@ public class ProductService : IProductService
     {
         var product = await _context.Products
             .AsNoTracking()
-            .Where(p => p.Id == id && !p.IsDeleted)
+            .Where(p => p.Id == id)
             .Select(p => new ProductResponse(
                 p.Id,
                 p.Code,
