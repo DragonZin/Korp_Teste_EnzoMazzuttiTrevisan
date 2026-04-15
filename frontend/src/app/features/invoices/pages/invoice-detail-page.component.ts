@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -26,7 +26,7 @@ import { Product } from '../../products/models/product.model';
               type="button"
               class="btn btn-outline-success btn-sm"
               (click)="closeInvoice()"
-              [disabled]="!invoice() || invoice()!.status === 2 || isClosingInvoice()"
+              [disabled]="!invoice() || isInvoiceClosed() || isClosingInvoice()"
             >
               {{ isClosingInvoice() ? 'Fechando...' : 'Fechar nota' }}
             </button>
@@ -69,7 +69,7 @@ import { Product } from '../../products/models/product.model';
                     type="button"
                     class="btn btn-outline-primary no-print"
                     (click)="isEditingCustomerName() ? saveCustomerName() : startEditingCustomerName()"
-                    [disabled]="isUpdatingCustomerName() || invoice.status === 2"
+                    [disabled]="isUpdatingCustomerName() || isInvoiceClosed()"
                   >
                     {{ isUpdatingCustomerName() ? 'Salvando...' : (isEditingCustomerName() ? 'Salvar' : 'Editar') }}
                   </button>
@@ -143,7 +143,7 @@ import { Product } from '../../products/models/product.model';
                     <th class="text-end">Preço unitário</th>
                     <th class="text-end">Quantidade</th>
                     <th class="text-end">Total</th>
-                    <th class="text-end no-print">Ações</th>
+                    <th class="text-end no-print" *ngIf="canManageItems(invoice)">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,12 +176,12 @@ import { Product } from '../../products/models/product.model';
                       <ng-template #readOnlyQuantity>{{ product.quantity }}</ng-template>
                     </td>
                     <td class="text-end">{{ product.totalPrice | currency: 'BRL' }}</td>
-                    <td class="text-end no-print">
+                    <td class="text-end no-print" *ngIf="canManageItems(invoice)">
                       <button
                         type="button"
                         class="btn btn-outline-danger btn-sm"
                         (click)="removeProduct(product.productId)"
-                        [disabled]="!canManageItems(invoice) || isItemActionDisabled(product.productId)"
+                        [disabled]="isItemActionDisabled(product.productId)"
                       >
                         {{ removingProductId() === product.productId ? 'Excluindo...' : 'Excluir' }}
                       </button>
@@ -189,7 +189,7 @@ import { Product } from '../../products/models/product.model';
                   </tr>
 
                   <tr *ngIf="invoice.products.length === 0">
-                    <td colspan="6" class="text-center text-body-secondary py-3">
+                    <td [attr.colspan]="canManageItems(invoice) ? 6 : 5" class="text-center text-body-secondary py-3">
                       Esta nota não possui produtos cadastrados.
                     </td>
                   </tr>
@@ -288,6 +288,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly isAddingProduct = signal(false);
   protected readonly updatingProductId = signal<string | null>(null);
   protected readonly removingProductId = signal<string | null>(null);
+  protected readonly isInvoiceClosed = computed(() => this.invoice()?.status === 2);
   private readonly customerDocumentPattern = /^(\d{11}|\d{14}|\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})$/;
 
   ngOnInit(): void {
