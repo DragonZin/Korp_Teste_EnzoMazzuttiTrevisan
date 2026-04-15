@@ -6,4 +6,5 @@ export interface ProblemDetails {
   instance: string;
   traceId: string;
   timestamp: string;
+  errors?: Record<string, string | string[]>;
 }
