@@ -76,12 +76,9 @@ public class InvoiceService : IInvoiceService
     {
         ValidateCreateRequest(request);
 
-        var nextInvoiceNumber = await GetNextInvoiceNumberAsync();
-
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
-            Number = nextInvoiceNumber,
             TotalAmount = 0,
             Status = InvoiceStatus.Open,
             CustomerName = request.CustomerName.Trim(),
@@ -389,19 +386,6 @@ public class InvoiceService : IInvoiceService
 
     private static string BuildInventoryCompensationIdempotencyKey(Guid productId, int stockDelta, int index)
         => $"invoice-close-compensation:product:{productId}:stock:{stockDelta}:idx:{index}";
-
-    private async Task<int> GetNextInvoiceNumberAsync()
-    {
-        const int firstInvoiceNumber = 1000;
-
-        var currentMaxNumber = await _context.Invoices
-            .AsNoTracking()
-            .MaxAsync(i => (int?)i.Number);
-
-        return currentMaxNumber.HasValue
-            ? currentMaxNumber.Value + 1
-            : firstInvoiceNumber;
-    }
 
     private static void ValidateCreateRequest(CreateInvoiceRequest request)
     {

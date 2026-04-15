@@ -20,6 +20,10 @@ public class AppDbContext : DbContext, IIdempotencyDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+       
+        modelBuilder.HasSequence<int>("invoice_number_seq")
+            .StartsAt(1000)
+            .IncrementsBy(1);
 
         modelBuilder.Entity<Invoice>(entity =>
         {
@@ -32,6 +36,8 @@ public class AppDbContext : DbContext, IIdempotencyDbContext
 
             entity.Property(i => i.Number)
                 .HasColumnName("number")
+                .HasDefaultValueSql("nextval('\"invoice_number_seq\"')")
+                .ValueGeneratedOnAdd()
                 .IsRequired();
 
             entity.HasIndex(i => i.Number)
