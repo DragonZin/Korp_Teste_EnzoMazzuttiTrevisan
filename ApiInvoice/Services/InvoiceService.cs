@@ -13,6 +13,7 @@ namespace ApiInvoice.Services;
 public class InvoiceService : IInvoiceService
 {
     private const int MaxPageSize = 100;
+    private const string IdempotencyHeader = "Idempotency-Key";
     private readonly AppDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -154,7 +155,8 @@ public class InvoiceService : IInvoiceService
                 {
                     await AdjustProductInventoryAsync(
                         productEntry.Key,
-                        stockDelta: -productEntry.Value);
+                        stockDelta: -productEntry.Value,
+                        idempotencyKey: BuildInventoryAdjustmentIdempotencyKey(id, productEntry.Key, -productEntry.Value));
 
                     appliedAdjustments.Add((productEntry.Key, productEntry.Value));
                 }
@@ -163,13 +165,6 @@ public class InvoiceService : IInvoiceService
             {
                 await CompensateInventoryAdjustmentsAsync(appliedAdjustments);
                 throw new ValidationException("Não foi possível concluir o fechamento da nota fiscal. As baixas de estoque aplicadas foram compensadas.");
-            }
-
-            foreach (var productEntry in totalQuantitiesByProduct)
-            {
-                await AdjustProductInventoryAsync(
-                    productEntry.Key,
-                    stockDelta: -productEntry.Value);
             }
         }
 
@@ -221,11 +216,21 @@ public class InvoiceService : IInvoiceService
         return products.ToDictionary(p => p.Id);
     }
 
-    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0)
+    private async Task AdjustProductInventoryAsync(Guid productId, int stockDelta = 0, string? idempotencyKey = null)
     {
         var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = new { StockDelta = stockDelta };
-        var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
+        var payload = JsonContent.Create(new { StockDelta = stockDelta });
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"api/products/internal/{productId}/inventory")
+        {
+            Content = payload
+        };
+
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            request.Headers.TryAddWithoutValidation(IdempotencyHeader, idempotencyKey);
+        }
+
+        var response = await client.SendAsync(request);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -248,7 +253,8 @@ public class InvoiceService : IInvoiceService
             {
                 await AdjustProductInventoryAsync(
                     appliedAdjustment.ProductId,
-                    stockDelta: appliedAdjustment.Quantity);
+                    stockDelta: appliedAdjustment.Quantity,
+                    idempotencyKey: BuildInventoryCompensationIdempotencyKey(appliedAdjustment.ProductId, appliedAdjustment.Quantity, i));
             }
             catch
             {
@@ -256,6 +262,12 @@ public class InvoiceService : IInvoiceService
             }
         }
     }
+
+    private static string BuildInventoryAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int stockDelta)
+        => $"invoice-close:{invoiceId}:product:{productId}:stock:{stockDelta}";
+
+    private static string BuildInventoryCompensationIdempotencyKey(Guid productId, int stockDelta, int index)
+        => $"invoice-close-compensation:product:{productId}:stock:{stockDelta}:idx:{index}";
 
     private async Task<int> GetNextInvoiceNumberAsync()
     {

@@ -12,6 +12,7 @@ namespace ApiInvoice.Services;
 
 public class InvoiceProductService : IInvoiceProductService
 {
+    private const string IdempotencyHeader = "Idempotency-Key";
     private readonly AppDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IInvoiceService _invoiceService;
@@ -62,7 +63,10 @@ public class InvoiceProductService : IInvoiceProductService
 
                 if (quantityDelta != 0)
                 {
-                    await AdjustProductReservationAsync(itemRequest.ProductId, quantityDelta);
+                    await AdjustProductReservationAsync(
+                        itemRequest.ProductId,
+                        quantityDelta,
+                        BuildReservationAdjustmentIdempotencyKey(invoiceId, itemRequest.ProductId, quantityDelta));
                     appliedReservationAdjustments.Add((itemRequest.ProductId, quantityDelta));
                 }
 
@@ -128,7 +132,10 @@ public class InvoiceProductService : IInvoiceProductService
         {
             if (itemToRemove.Quantity > 0)
             {
-                await AdjustProductReservationAsync(productId, -itemToRemove.Quantity);
+                await AdjustProductReservationAsync(
+                    productId,
+                    -itemToRemove.Quantity,
+                    BuildReservationAdjustmentIdempotencyKey(invoiceId, productId, -itemToRemove.Quantity));
                 appliedReservationAdjustments.Add((productId, -itemToRemove.Quantity));
             }
 
@@ -147,7 +154,7 @@ public class InvoiceProductService : IInvoiceProductService
         }
     }
 
-    private async Task AdjustProductReservationAsync(Guid productId, int reservedStockDelta)
+    private async Task AdjustProductReservationAsync(Guid productId, int reservedStockDelta, string? idempotencyKey = null)
     {
         if (reservedStockDelta == 0)
         {
@@ -155,8 +162,18 @@ public class InvoiceProductService : IInvoiceProductService
         }
 
         var client = _httpClientFactory.CreateClient("ProductApi");
-        var payload = new { StockDelta = 0, ReservedStockDelta = reservedStockDelta };
-        var response = await client.PutAsJsonAsync($"api/products/internal/{productId}/inventory", payload);
+        var payload = JsonContent.Create(new { StockDelta = 0, ReservedStockDelta = reservedStockDelta });
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"api/products/internal/{productId}/inventory")
+        {
+            Content = payload
+        };
+
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            request.Headers.TryAddWithoutValidation(IdempotencyHeader, idempotencyKey);
+        }
+
+        var response = await client.SendAsync(request);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -179,7 +196,11 @@ public class InvoiceProductService : IInvoiceProductService
             {
                 await AdjustProductReservationAsync(
                     appliedAdjustment.ProductId,
-                    reservedStockDelta: -appliedAdjustment.ReservedStockDelta);
+                    reservedStockDelta: -appliedAdjustment.ReservedStockDelta,
+                    idempotencyKey: BuildReservationCompensationIdempotencyKey(
+                        appliedAdjustment.ProductId,
+                        -appliedAdjustment.ReservedStockDelta,
+                        i));
             }
             catch
             {
@@ -187,6 +208,13 @@ public class InvoiceProductService : IInvoiceProductService
             }
         }
     }
+
+    private static string BuildReservationAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int reservedStockDelta)
+        => $"invoice-items:{invoiceId}:product:{productId}:reserved:{reservedStockDelta}";
+
+    private static string BuildReservationCompensationIdempotencyKey(Guid productId, int reservedStockDelta, int index)
+        => $"invoice-items-compensation:product:{productId}:reserved:{reservedStockDelta}:idx:{index}";
+
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
     {

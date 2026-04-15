@@ -6,14 +6,23 @@ public static class IdempotencyEndpointMatcher
 {
     private static readonly Regex ProductRouteRegex =
         new("^/api/products/?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex ProductInternalInventoryRouteRegex =
+        new("^/api/products/internal/[0-9a-fA-F-]{36}/inventory/?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static bool ShouldHandle(HttpRequest request)
     {
-        if (!HttpMethods.IsPost(request.Method))
+        var path = request.Path.Value ?? string.Empty;
+
+        if (HttpMethods.IsPost(request.Method))
         {
-            return false;
+            return ProductRouteRegex.IsMatch(path);
         }
 
-        return ProductRouteRegex.IsMatch(request.Path.Value ?? string.Empty);
+        if (HttpMethods.IsPut(request.Method))
+        {
+            return ProductInternalInventoryRouteRegex.IsMatch(path);
+        }
+
+        return false;
     }
 }
