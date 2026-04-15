@@ -79,13 +79,14 @@ type ProductFormMode = 'create' | 'edit';
               <tr>
                 <th>SKU</th>
                 <th>Nome</th>
+                <th class="text-end">Qtd. disponível</th>
                 <th class="text-end">Preço</th>
                 <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngIf="isLoading()">
-                <td colspan="4">
+                <td colspan="5">
                   <div class="placeholder-glow">
                     <span class="placeholder col-12"></span>
                   </div>
@@ -95,6 +96,7 @@ type ProductFormMode = 'create' | 'edit';
               <tr *ngFor="let product of products()">
                 <td>{{ product.code }}</td>
                 <td>{{ product.name }}</td>
+                <td class="text-end">{{ product.stock }}</td>
                 <td class="text-end">
                   {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
                 </td>
@@ -116,7 +118,7 @@ type ProductFormMode = 'create' | 'edit';
               </tr>
 
               <tr *ngIf="!isLoading() && products().length === 0">
-                <td colspan="4" class="text-center text-body-secondary py-4">
+                <td colspan="5" class="text-center text-body-secondary py-4">
                   Nenhum produto encontrado.
                 </td>
               </tr>
@@ -124,10 +126,47 @@ type ProductFormMode = 'create' | 'edit';
           </table>
         </div>
 
-        <p class="text-body-secondary mt-3 mb-0" *ngIf="!isLoading() && products().length > 0">
-          Exibindo {{ products().length }} de {{ totalItems() }} itens (página {{ page() }} de
-          {{ totalPages() }}).
-        </p>
+        <div
+          class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3"
+          *ngIf="!isLoading() && totalItems() > 0"
+        >
+          <p class="text-body-secondary mb-0">
+            Exibindo {{ products().length }} de {{ totalItems() }} itens (página {{ page() }} de
+            {{ totalPages() }}).
+          </p>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="form-label mb-0 text-body-secondary" for="products-page-size">Itens por página</label>
+            <select
+              id="products-page-size"
+              class="form-select form-select-sm"
+              style="width: auto"
+              [value]="pageSize()"
+              (change)="onPageSizeChange($event)"
+            >
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+
+            <div class="btn-group btn-group-sm" role="group" aria-label="Paginação de produtos">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                (click)="goToPreviousPage()"
+                [disabled]="!canGoToPreviousPage()"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                (click)="goToNextPage()"
+                [disabled]="!canGoToNextPage()"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -155,6 +194,7 @@ type ProductFormMode = 'create' | 'edit';
 })
 export class ProductsPageComponent implements OnInit {
   private readonly productsApiService = inject(ProductsApiService);
+  readonly pageSizeOptions = [25, 50, 75, 100] as const;
 
   readonly products = signal<Product[]>([]);
   readonly isLoading = signal(false);
@@ -167,7 +207,7 @@ export class ProductsPageComponent implements OnInit {
   readonly drawerMode = signal<ProductFormMode>('create');
   readonly selectedProduct = signal<Product | null>(null);
   readonly page = signal(1);
-  readonly pageSize = signal(10);
+  readonly pageSize = signal<number>(this.pageSizeOptions[0]);
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);
 
@@ -202,11 +242,50 @@ export class ProductsPageComponent implements OnInit {
   }
 
   loadProducts(): void {
+    this.loadProductsBy(this.page(), this.pageSize());
+  }
+
+  goToPreviousPage(): void {
+    if (!this.canGoToPreviousPage()) {
+      return;
+    }
+
+    this.loadProductsBy(this.page() - 1, this.pageSize());
+  }
+
+  goToNextPage(): void {
+    if (!this.canGoToNextPage()) {
+      return;
+    }
+
+    this.loadProductsBy(this.page() + 1, this.pageSize());
+  }
+
+  canGoToPreviousPage(): boolean {
+    return !this.isLoading() && this.page() > 1;
+  }
+
+  canGoToNextPage(): boolean {
+    return !this.isLoading() && this.page() < this.totalPages();
+  }
+
+  onPageSizeChange(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    const nextPageSize = Number(target?.value);
+
+    if (!Number.isFinite(nextPageSize) || !this.pageSizeOptions.includes(nextPageSize as 25 | 50 | 75 | 100)) {
+      return;
+    }
+
+    this.loadProductsBy(1, nextPageSize);
+  }
+
+  private loadProductsBy(page: number, pageSize: number): void {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
     this.productsApiService
-      .list()
+      .list(page, pageSize)
       .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (response: PagedResponse<Product>) => {
@@ -218,6 +297,8 @@ export class ProductsPageComponent implements OnInit {
         },
         error: (error: HttpErrorResponse) => {
           this.products.set([]);
+          this.totalItems.set(0);
+          this.totalPages.set(0);
           this.errorMessage.set(this.getFriendlyErrorMessage(error));
         },
       });

@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -14,8 +14,12 @@ export class ProductsApiService {
   private readonly http = inject(HttpClient);
   private readonly productsUrl = `${API_CONFIG.baseUrl}/products`;
 
-  list(): Observable<PagedResponse<Product>> {
-    return this.http.get<PagedResponse<Product>>(this.productsUrl);
+  list(page = 1, pageSize = 25): Observable<PagedResponse<Product>> {
+    const params = new HttpParams()
+      .set('page', page)
+      .set('pageSize', pageSize);
+
+    return this.http.get<PagedResponse<Product>>(this.productsUrl, { params });
   }
 
   getById(id: string): Observable<Product> {
