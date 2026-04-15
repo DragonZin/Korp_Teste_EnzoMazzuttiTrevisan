@@ -1,12 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
+import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 import { InvoiceFormComponent } from '../components/invoice-form.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
@@ -15,7 +16,7 @@ import { Invoice } from '../models/invoice.model';
 @Component({
   selector: 'app-invoices-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent],
+  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent, BaseModalComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -159,47 +160,22 @@ import { Invoice } from '../models/invoice.model';
         />
       </div>
     </section>
-    <div
-      *ngIf="isCreateModalOpen()"
-      class="invoice-modal-backdrop"
-      role="presentation"
-      (click)="closeCreateModal()"
+    <app-base-modal
+      [isOpen]="isCreateModalOpen()"
+      title="Nova nota fiscal"
+      subtitle="Preencha os dados do cliente para criar a nota."
+      size="md"
+      [closeOnBackdropClick]="!isCreatingInvoice()"
+      (closed)="closeCreateModal()"
     >
-      <div
-        class="invoice-modal card border-0 shadow"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-invoice-title"
-        aria-describedby="create-invoice-subtitle"
-        (click)="$event.stopPropagation()"
-      >
-        <div class="card-body p-4 p-sm-4">
-          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-            <div>
-              <h3 id="create-invoice-title" class="h5 mb-1">Nova nota fiscal</h3>
-              <p id="create-invoice-subtitle" class="text-body-secondary mb-0">
-                Preencha os dados do cliente para criar a nota.
-              </p>
-            </div>
-            <button
-              type="button"
-              class="btn-close"
-              aria-label="Fechar modal"
-              (click)="closeCreateModal()"
-              [disabled]="isCreatingInvoice()"
-            ></button>
-          </div>
-
-          <app-invoice-form
-            [isSubmitting]="isCreatingInvoice()"
-            [apiErrorMessage]="createApiError()"
-            [apiFieldErrors]="createFieldErrors()"
-            (submitted)="submitCreateInvoice($event)"
-            (cancelled)="closeCreateModal()"
-          />
-        </div>
-      </div>
-    </div>
+    <app-invoice-form
+      [isSubmitting]="isCreatingInvoice()"
+      [apiErrorMessage]="createApiError()"
+      [apiFieldErrors]="createFieldErrors()"
+      (submitted)="submitCreateInvoice($event)"
+      (cancelled)="closeCreateModal()"
+    />
+    </app-base-modal>
   `,
   styleUrl: './invoices-page.component.scss',
 })
@@ -284,13 +260,6 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     this.loadInvoices(this.page() + 1);
-  }
-  
-  @HostListener('document:keydown.escape')
-  onEscapePressed(): void {
-    if (this.isCreateModalOpen()) {
-      this.closeCreateModal();
-    }
   }
 
   openCreateModal(): void {

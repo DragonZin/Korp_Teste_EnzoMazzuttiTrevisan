@@ -6,6 +6,7 @@ import { finalize, Subscription } from 'rxjs';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
+import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 import { ProductFormComponent } from '../components/product-form.component';
 import { ProductsApiService } from '../data/products-api.service';
 import { CreateProductRequest } from '../models/create-product-request.model';
@@ -18,7 +19,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
 @Component({
   selector: 'app-products-page',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, ProductFormComponent, PaginationControlsComponent],
+  imports: [CommonModule, CurrencyPipe, ProductFormComponent, PaginationControlsComponent, BaseModalComponent],
   styleUrl: './products-page.component.scss',
   template: `
     <section class="card border-0 shadow-sm">
@@ -154,24 +155,14 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
       </div>
     </section>
 
-    <div *ngIf="isDrawerOpen()" class="overlay" (click)="closeDrawer()" aria-hidden="true">
-      <div
-        class="modal-container p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="product-modal-title"
-        (click)="$event.stopPropagation()"
-      >
-        <div class="d-flex justify-content-between align-items-start mb-3">
-          <div>
-            <h3 id="product-modal-title" class="h5 mb-1">
-              {{ drawerMode() === 'create' ? 'Novo produto' : 'Editar produto' }}
-            </h3>
-            <p class="text-body-secondary mb-0">Preencha os campos para salvar.</p>
-          </div>
-          <button type="button" class="btn-close" aria-label="Fechar modal" (click)="closeDrawer()"></button>
-        </div>
-
+    <app-base-modal
+      [isOpen]="isDrawerOpen()"
+      [title]="drawerMode() === 'create' ? 'Novo produto' : 'Editar produto'"
+      subtitle="Preencha os campos para salvar."
+      size="md"
+      [closeOnBackdropClick]="!isSaving()"
+      (closed)="closeDrawer()"
+    >
         <app-product-form
           [product]="selectedProduct()"
           [isSubmitting]="isSaving()"
@@ -180,8 +171,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
           (submitted)="submitForm($event)"
           (cancelled)="closeDrawer()"
         />
-      </div>
-    </div>
+    </app-base-modal>
   `,
 })
 export class ProductsPageComponent implements OnInit, OnDestroy {

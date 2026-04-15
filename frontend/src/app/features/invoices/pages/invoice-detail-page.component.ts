@@ -9,11 +9,12 @@ import { Invoice } from '../models/invoice.model';
 import { ProductsApiService } from '../../products/data/products-api.service';
 import { Product } from '../../products/models/product.model';
 import { QuantityStepperComponent } from '../components/quantity-stepper.component';
+import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 
 @Component({
   selector: 'app-invoice-detail-page',
   standalone: true,
-  imports: [CommonModule, QuantityStepperComponent],
+  imports: [CommonModule, QuantityStepperComponent, BaseModalComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -205,21 +206,15 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
 
       </div>
     </section>
-    <div *ngIf="isAddProductModalOpen()" class="overlay no-print" (click)="closeAddProductModal()" aria-hidden="true">
-      <div
-        class="modal-container p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="invoice-add-product-modal-title"
-        (click)="$event.stopPropagation()"
-      >
-        <div class="d-flex justify-content-between align-items-start mb-3">
-          <div>
-            <h3 id="invoice-add-product-modal-title" class="h5 mb-1">Adicionar produto</h3>
-            <p class="text-body-secondary mb-0">Selecione um ou mais itens do catálogo para incluir na nota fiscal.</p>
-          </div>
-          <button type="button" class="btn-close" aria-label="Fechar modal" (click)="closeAddProductModal()"></button>
-        </div>
+    <app-base-modal
+      [isOpen]="isAddProductModalOpen()"
+      class="no-print"
+      title="Adicionar produto"
+      subtitle="Selecione um ou mais itens do catálogo para incluir na nota fiscal."
+      size="lg"
+      [closeOnBackdropClick]="!isAddingProduct()"
+      (closed)="closeAddProductModal()"
+    >
 
         <div *ngIf="isLoadingProductsCatalog()" class="small text-body-secondary mb-2">Carregando catálogo...</div>
 
@@ -329,8 +324,7 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </app-base-modal>
   `,
   styleUrl: './invoice-detail-page.component.scss',
 })
