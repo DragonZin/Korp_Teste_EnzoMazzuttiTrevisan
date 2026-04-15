@@ -159,10 +159,6 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
                           [min]="1"
                           [disabled]="isItemActionDisabled(product.productId)"
                           inputAriaLabel="Quantidade do item {{ getProductDisplayName(product.productId) }}"
-                          decrementAriaLabel="Diminuir quantidade do item {{ getProductDisplayName(product.productId) }}"
-                          incrementAriaLabel="Aumentar quantidade do item {{ getProductDisplayName(product.productId) }}"
-                          (decrement)="decrementItemQuantity(product.productId)"
-                          (increment)="incrementItemQuantity(product.productId)"
                           (commit)="commitItemQuantity(product.productId, $event)"
                         />
                       </div>
@@ -215,10 +211,6 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
                     [min]="1"
                     [disabled]="isAddingProduct()"
                     inputAriaLabel="Quantidade do produto para adicionar"
-                    decrementAriaLabel="Diminuir quantidade do produto para adicionar"
-                    incrementAriaLabel="Aumentar quantidade do produto para adicionar"
-                    (decrement)="decreaseAddQuantity()"
-                    (increment)="increaseAddQuantity()"
                     (commit)="commitAddQuantity($event)"
                   />
                 </div>
@@ -455,14 +447,6 @@ export class InvoiceDetailPageComponent implements OnInit {
     return this.updatingProductId() === productId || this.removingProductId() === productId || this.isAddingProduct();
   }
 
-  protected increaseAddQuantity(): void {
-    this.quantityToAdd.update((current) => current + 1);
-  }
-
-  protected decreaseAddQuantity(): void {
-    this.quantityToAdd.update((current) => Math.max(1, current - 1));
-  }
-
   protected commitAddQuantity(rawValue: string | number): void {
     const normalizedQuantity = this.normalizeQuantity(rawValue);
     if (normalizedQuantity === null) {
@@ -495,7 +479,7 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     if (invoice.products.some((item) => item.productId === selectedProductId)) {
-      this.errorMessage.set('Este produto já está na nota fiscal. Use os botões de quantidade para ajustar.');
+      this.errorMessage.set('Este produto já está na nota fiscal. Use o campo de quantidade para ajustar.');
       return;
     }
 
@@ -527,43 +511,6 @@ export class InvoiceDetailPageComponent implements OnInit {
           this.errorMessage.set(this.getFriendlyErrorMessage(error));
         }
       });
-  }
-
-  protected incrementItemQuantity(productId: string): void {
-    const invoice = this.invoice();
-
-    if (!invoice) {
-      return;
-    }
-
-    const currentItem = invoice.products.find((item) => item.productId === productId);
-    if (!currentItem) {
-      this.errorMessage.set('Produto não encontrado na nota fiscal.');
-      return;
-    }
-
-    this.updateProductQuantity(productId, currentItem.quantity + 1);
-  }
-
-  protected decrementItemQuantity(productId: string): void {
-    const invoice = this.invoice();
-
-    if (!invoice) {
-      return;
-    }
-
-    const currentItem = invoice.products.find((item) => item.productId === productId);
-    if (!currentItem) {
-      this.errorMessage.set('Produto não encontrado na nota fiscal.');
-      return;
-    }
-
-    if (currentItem.quantity <= 1) {
-      this.errorMessage.set('A quantidade mínima é 1. Use o botão Excluir para remover o item.');
-      return;
-    }
-
-    this.updateProductQuantity(productId, currentItem.quantity - 1);
   }
 
   protected commitItemQuantity(productId: string, rawValue: string | number): void {
