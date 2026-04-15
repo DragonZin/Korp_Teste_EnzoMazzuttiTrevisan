@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { finalize, Subscription } from 'rxjs';
@@ -9,6 +9,7 @@ import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 import { ProductFormComponent } from '../components/product-form.component';
+import { ProductsTableComponent } from '../components/products-table.component';
 import { ProductsApiService } from '../data/products-api.service';
 import { CreateProductRequest } from '../models/create-product-request.model';
 import { Product } from '../models/product.model';
@@ -20,7 +21,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
 @Component({
   selector: 'app-products-page',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, ProductFormComponent, PaginationControlsComponent, BaseModalComponent],
+  imports: [CommonModule, ProductsTableComponent, ProductFormComponent, PaginationControlsComponent, BaseModalComponent],
   styleUrl: './products-page.component.scss',
   template: `
     <section class="card border-0 shadow-sm">
@@ -65,75 +66,58 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
           {{ error }}
         </div>
 
-        <div class="table-responsive">
+       <div class="table-responsive" *ngIf="isInitialLoading(); else productsTable">
           <table class="table table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Nome</th>
-                <th class="text-end">Estoque</th>
-                <th class="text-end">Qtd. disponível</th>
-                <th class="text-end">Preço</th>
-                <th class="text-end">Ações</th>
-              </tr>
-            </thead>
             <tbody>
-              <ng-container *ngIf="isInitialLoading(); else productsBody">
-                <tr *ngFor="let row of skeletonRows">
-                  <td colspan="6" class="py-2">
-                    <div class="skeleton-row">
-                      <span class="placeholder skeleton-cell skeleton-cell--sm"></span>
-                      <span class="placeholder skeleton-cell"></span>
-                      <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
-                      <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
-                      <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
-                    </div>
-                  </td>
-                </tr>
-              </ng-container>
-
-              <ng-template #productsBody>
-                <tr *ngFor="let product of products(); trackBy: trackByProductId">
-                  <td>{{ product.code }}</td>
-                  <td>{{ product.name }}</td>
-                  <td class="text-end">{{ product.stock }}</td>
-                  <td class="text-end">
-                    <div class="available-wrap">
-                      <span>{{ product.availableQuantity }}</span>
-                      <span class="badge" [ngClass]="availabilityClass(product)">
-                        {{ availabilityLabel(product) }}
-                      </span>
-                    </div>
-                  </td>
-                  <td class="text-end">
-                    {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
-                  </td>
-                  <td class="text-end">
-                    <div class="action-buttons">
-                      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openEditDrawer(product)">
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-danger"
-                        (click)="deleteProduct(product)"
-                        [disabled]="isDeletingId() === product.id"
-                      >
-                        {{ isDeletingId() === product.id ? 'Excluindo...' : 'Excluir' }}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr *ngIf="!isLoading() && products().length === 0">
-                  <td colspan="6" class="text-center text-body-secondary py-5 empty-state">
-                    Nenhum produto encontrado.
-                  </td>
-                </tr>
-              </ng-template>
+              <tr *ngFor="let row of skeletonRows">
+                <td colspan="6" class="py-2">
+                  <div class="skeleton-row">
+                    <span class="placeholder skeleton-cell skeleton-cell--sm"></span>
+                    <span class="placeholder skeleton-cell"></span>
+                    <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                    <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                    <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
+
+        <ng-template #productsTable>
+          <app-products-table
+            [products]="products()"
+            [isLoading]="isLoading()"
+            [showActions]="true"
+            [availableQuantityTemplate]="availableQuantityCell"
+            [actionsTemplate]="productsActionsCell"
+          />
+        </ng-template>
+
+        <ng-template #availableQuantityCell let-product>
+          <div class="available-wrap">
+            <span>{{ product.availableQuantity }}</span>
+            <span class="badge" [ngClass]="availabilityClass(product)">
+              {{ availabilityLabel(product) }}
+            </span>
+          </div>
+        </ng-template>
+
+        <ng-template #productsActionsCell let-product>
+          <div class="action-buttons">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openEditDrawer(product)">
+              Editar
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              (click)="deleteProduct(product)"
+              [disabled]="isDeletingId() === product.id"
+            >
+              {{ isDeletingId() === product.id ? 'Excluindo...' : 'Excluir' }}
+            </button>
+          </div>
+        </ng-template>
 
         <div *ngIf="isLoading() && !isInitialLoading()" class="small text-body-secondary mt-2" aria-live="polite">
           Atualizando lista...

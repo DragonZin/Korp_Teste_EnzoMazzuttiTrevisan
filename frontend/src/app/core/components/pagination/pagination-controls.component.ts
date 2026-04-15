@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
-export const DEFAULT_PAGE_SIZE_OPTIONS: ReadonlyArray<number> = [ 25, 50, 75, 100];
+export const DEFAULT_PAGE_SIZE_OPTIONS: ReadonlyArray<number> = [ 10, 25, 50, 75, 100];
 
 @Component({
   selector: 'app-pagination-controls',
@@ -9,15 +9,15 @@ export const DEFAULT_PAGE_SIZE_OPTIONS: ReadonlyArray<number> = [ 25, 50, 75, 10
   imports: [CommonModule],
   template: `
     <div
-      class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3"
+      [ngClass]="containerClass"
       *ngIf="!isLoading && totalItems > 0"
     >
-      <p class="text-body-secondary mb-0">
+      <p [ngClass]="summaryClass">
         Exibindo {{ currentItemCount }} de {{ totalItems }} itens (página {{ page }} de {{ totalPages }}).
       </p>
 
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <label class="form-label mb-0 text-body-secondary" [for]="pageSizeId">Itens por página</label>
+      <div [ngClass]="controlsClass">
+        <label [ngClass]="pageSizeLabelClass" [for]="pageSizeId">{{ pageSizeLabel }}</label>
         <select
           [id]="pageSizeId"
           class="form-select form-select-sm"
@@ -61,6 +61,11 @@ export class PaginationControlsComponent {
   @Input() isLoading = false;
   @Input() pageSizeId = 'page-size';
   @Input() ariaLabel = 'Paginação';
+  @Input() pageSizeLabel = 'Itens por página';
+  @Input() containerClass = 'd-flex flex-wrap justify-content-between align-items-center gap-3 mt-3';
+  @Input() summaryClass = 'text-body-secondary mb-0';
+  @Input() controlsClass = 'd-flex flex-wrap align-items-center gap-2';
+  @Input() pageSizeLabelClass = 'form-label mb-0 text-body-secondary';
 
   @Output() readonly previous = new EventEmitter<void>();
   @Output() readonly next = new EventEmitter<void>();

@@ -13,11 +13,13 @@ import { Product } from '../../products/models/product.model';
 import { QuantityStepperComponent } from '../components/quantity-stepper.component';
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.component';
+import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
+import { ProductsTableComponent } from '../../products/components/products-table.component';
 
 @Component({
   selector: 'app-invoice-detail-page',
   standalone: true,
-  imports: [CommonModule, QuantityStepperComponent, BaseModalComponent, InvoiceSummaryCardComponent],
+  imports: [CommonModule, QuantityStepperComponent, BaseModalComponent, InvoiceSummaryCardComponent, PaginationControlsComponent, ProductsTableComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -192,93 +194,62 @@ import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.
 
         <div *ngIf="isLoadingProductsCatalog()" class="small text-body-secondary mb-2">Carregando catálogo...</div>
 
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Nome</th>
-                <th class="text-end">Estoque</th>
-                <th class="text-end">Qtd. disponível</th>
-                <th class="text-end">Preço</th>
-                <th class="text-end">Quantidade</th>
-                <th class="text-end">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let product of productsCatalog()">
-                <td>{{ product.code }}</td>
-                <td>{{ product.name }}</td>
-                <td class="text-end">{{ product.stock }}</td>
-                <td class="text-end">{{ product.availableQuantity }}</td>
-                <td class="text-end">{{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</td>
-                <td class="text-end">
-                  <ng-container *ngIf="isProductSelectedToAdd(product.id); else unselectedCatalogProduct">
-                    <app-quantity-stepper
-                      [value]="getSelectedProductQuantity(product.id)"
-                      [min]="1"
-                      [disabled]="isAddingProduct()"
-                      inputAriaLabel="Quantidade para adicionar do produto {{ product.name }}"
-                      (commit)="commitSelectedProductQuantity(product.id, $event)"
-                    />
-                  </ng-container>
-                  <ng-template #unselectedCatalogProduct>-</ng-template>
-                </td>
-                <td class="text-end">
-                <div class="form-check d-inline-flex justify-content-end m-0">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [id]="'catalog-product-' + product.id"
-                      [checked]="isProductSelectedToAdd(product.id)"
-                      [disabled]="isAddingProduct()"
-                      (change)="selectProductToAdd(product)"
-                    />
-                  </div>
-                </td>
-              </tr>
-              <tr *ngIf="!isLoadingProductsCatalog() && productsCatalog().length === 0">
-                <td colspan="7" class="text-center text-body-secondary py-4">Nenhum produto disponível no catálogo.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <app-products-table
+          [products]="productsCatalog()"
+          [isLoading]="isLoadingProductsCatalog()"
+          [showQuantitySelector]="true"
+          [showActions]="true"
+          quantitySelectorHeader="Quantidade"
+          actionsHeader="Ação"
+          emptyMessage="Nenhum produto disponível no catálogo."
+          [quantitySelectorTemplate]="catalogQuantityCell"
+          [actionsTemplate]="catalogActionCell"
+        />
 
-        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-          <div class="small text-body-secondary">
-            Página {{ catalogPage() }} de {{ catalogTotalPages() || 1 }} · {{ catalogTotalItems() }} itens
+        <ng-template #catalogQuantityCell let-product>
+          <ng-container *ngIf="isProductSelectedToAdd(product.id); else unselectedCatalogProduct">
+            <app-quantity-stepper
+              [value]="getSelectedProductQuantity(product.id)"
+              [min]="1"
+              [disabled]="isAddingProduct()"
+              inputAriaLabel="Quantidade para adicionar do produto {{ product.name }}"
+              (commit)="commitSelectedProductQuantity(product.id, $event)"
+            />
+          </ng-container>
+          <ng-template #unselectedCatalogProduct>-</ng-template>
+        </ng-template>
+
+        <ng-template #catalogActionCell let-product>
+          <div class="form-check d-inline-flex justify-content-end m-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'catalog-product-' + product.id"
+              [checked]="isProductSelectedToAdd(product.id)"
+              [disabled]="isAddingProduct()"
+              (change)="selectProductToAdd(product)"
+            />
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <label class="small text-body-secondary" for="catalog-page-size">Itens por página</label>
-            <select
-              id="catalog-page-size"
-              class="form-select form-select-sm page-size-select"
-              [value]="catalogPageSize()"
-              [disabled]="isLoadingProductsCatalog()"
-              (change)="onCatalogPageSizeChange(($any($event.target)).value)"
-            >
-              <option [value]="10">10</option>
-              <option [value]="25">25</option>
-              <option [value]="50">50</option>
-            </select>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              (click)="goToPreviousCatalogPage()"
-              [disabled]="!canGoToPreviousCatalogPage()"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              (click)="goToNextCatalogPage()"
-              [disabled]="!canGoToNextCatalogPage()"
-            >
-              Próxima
-            </button>
-          </div>
-        </div>
+        </ng-template>
+
+        <app-pagination-controls
+          [currentItemCount]="productsCatalog().length"
+          [totalItems]="catalogTotalItems()"
+          [page]="catalogPage()"
+          [totalPages]="catalogTotalPages() || 1"
+          [pageSize]="catalogPageSize()"
+          [pageSizeOptions]="catalogPageSizeOptions"
+          [isLoading]="isLoadingProductsCatalog()"
+          pageSizeId="catalog-page-size"
+          ariaLabel="Paginação do catálogo de produtos"
+          containerClass="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2"
+          summaryClass="small text-body-secondary mb-0"
+          controlsClass="d-flex align-items-center gap-2"
+          pageSizeLabelClass="small text-body-secondary mb-0"
+          (previous)="goToPreviousCatalogPage()"
+          (next)="goToNextCatalogPage()"
+          (pageSizeChange)="onCatalogPageSizeChange($event)"
+        />
 
         <div class="modal-confirmation border-top mt-3 pt-3">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -329,7 +300,8 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly selectedProductQuantitiesToAdd = signal<Record<string, number>>({});
   protected readonly isAddProductModalOpen = signal(false);
   protected readonly catalogPage = signal(1);
-  protected readonly catalogPageSize = signal(10);
+  protected readonly catalogPageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
+  protected readonly catalogPageSize = signal(this.catalogPageSizeOptions[0]);
   protected readonly catalogTotalItems = signal(0);
   protected readonly catalogTotalPages = signal(0);
   protected readonly catalogSearchTerm = signal('');
@@ -590,7 +562,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   protected goToPreviousCatalogPage(): void {
-    if (!this.canGoToPreviousCatalogPage()) {
+    if (this.isLoadingProductsCatalog() || this.catalogPage() <= 1) {
       return;
     }
 
@@ -598,29 +570,20 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   protected goToNextCatalogPage(): void {
-    if (!this.canGoToNextCatalogPage()) {
+    if (this.isLoadingProductsCatalog() || this.catalogPage() >= this.catalogTotalPages()) {
       return;
     }
 
     this.loadProductsCatalog(this.catalogPage() + 1, this.catalogPageSize());
   }
 
-  protected canGoToPreviousCatalogPage(): boolean {
-    return !this.isLoadingProductsCatalog() && this.catalogPage() > 1;
-  }
-
-  protected canGoToNextCatalogPage(): boolean {
-    return !this.isLoadingProductsCatalog() && this.catalogPage() < this.catalogTotalPages();
-  }
-
-  protected onCatalogPageSizeChange(rawValue: string | number): void {
-    const parsedPageSize = Number(rawValue);
-    if (!Number.isInteger(parsedPageSize) || parsedPageSize < 1) {
+  protected onCatalogPageSizeChange(pageSize: number): void {
+    if (!Number.isInteger(pageSize) || pageSize < 1) {
       return;
     }
 
-    this.catalogPageSize.set(parsedPageSize);
-    this.loadProductsCatalog(1, parsedPageSize);
+    this.catalogPageSize.set(pageSize);
+    this.loadProductsCatalog(1, pageSize);
   }
 
   protected addSelectedProduct(): void {
