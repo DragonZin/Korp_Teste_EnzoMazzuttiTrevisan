@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
+import { InvoiceFormComponent } from '../components/invoice-form.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 import { Invoice } from '../models/invoice.model';
@@ -14,7 +15,7 @@ import { Invoice } from '../models/invoice.model';
 @Component({
   selector: 'app-invoices-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationControlsComponent],
+  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -174,52 +175,14 @@ import { Invoice } from '../models/invoice.model';
         <div class="card-body">
           <h3 id="create-invoice-title" class="h5 mb-3">Nova nota fiscal</h3>
 
-          <div *ngIf="createApiError() as createError" class="alert alert-danger py-2" role="alert">
-            {{ createError }}
-          </div>
+          <app-invoice-form
+            [isSubmitting]="isCreatingInvoice()"
+            [apiErrorMessage]="createApiError()"
+            [apiFieldErrors]="createFieldErrors()"
+            (submitted)="submitCreateInvoice($event)"
+            (cancelled)="closeCreateModal()"
+          />
 
-          <form (ngSubmit)="submitCreateInvoice()" novalidate>
-            <div class="mb-3">
-              <label for="create-customer-name" class="form-label">Nome</label>
-              <input
-                id="create-customer-name"
-                type="text"
-                class="form-control"
-                [class.is-invalid]="!!createFieldErrors().customerName"
-                [value]="createCustomerName()"
-                (input)="onCreateCustomerNameInput($event)"
-                [disabled]="isCreatingInvoice()"
-              />
-              <div *ngIf="createFieldErrors().customerName as customerNameError" class="invalid-feedback d-block">
-                {{ customerNameError }}
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label for="create-customer-document" class="form-label">Documento</label>
-              <input
-                id="create-customer-document"
-                type="text"
-                class="form-control"
-                [class.is-invalid]="!!createFieldErrors().customerDocument"
-                [value]="createCustomerDocument()"
-                (input)="onCreateCustomerDocumentInput($event)"
-                [disabled]="isCreatingInvoice()"
-              />
-              <div *ngIf="createFieldErrors().customerDocument as customerDocumentError" class="invalid-feedback d-block">
-                {{ customerDocumentError }}
-              </div>
-            </div>
-
-            <div class="d-flex justify-content-end gap-2">
-              <button type="button" class="btn btn-outline-secondary" (click)="closeCreateModal()" [disabled]="isCreatingInvoice()">
-                Cancelar
-              </button>
-              <button type="submit" class="btn btn-primary" [disabled]="isCreatingInvoice()">
-                {{ isCreatingInvoice() ? 'Criando...' : 'Criar nota' }}
-              </button>
-            </div>
-          </form>
         </div>
       </div>
     </div>
@@ -312,8 +275,6 @@ export class InvoicesPageComponent implements OnInit {
   openCreateModal(): void {
     this.createApiError.set(null);
     this.createFieldErrors.set({});
-    this.createCustomerName.set('');
-    this.createCustomerDocument.set('');
     this.isCreateModalOpen.set(true);
   }
 
@@ -327,26 +288,13 @@ export class InvoicesPageComponent implements OnInit {
     this.createFieldErrors.set({});
   }
 
-  onCreateCustomerNameInput(event: Event): void {
-    this.createCustomerName.set((event.target as HTMLInputElement).value);
-  }
-
-  onCreateCustomerDocumentInput(event: Event): void {
-    this.createCustomerDocument.set((event.target as HTMLInputElement).value);
-  }
-
-  submitCreateInvoice(): void {
+  submitCreateInvoice(payload: CreateInvoiceRequest): void {
     if (this.isCreatingInvoice()) {
       return;
     }
 
     this.createApiError.set(null);
     this.createFieldErrors.set({});
-
-    const payload: CreateInvoiceRequest = {
-      customerName: this.createCustomerName().trim(),
-      customerDocument: this.createCustomerDocument().trim(),
-    };
 
     this.isCreatingInvoice.set(true);
 
