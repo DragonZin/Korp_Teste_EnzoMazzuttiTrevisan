@@ -12,7 +12,7 @@
     padding: 0 !important;
   }
 
-  body.invoice-print-mode app-root > .min-vh-100 > main > *:not(app-invoice-detail-page) {
+  body.invoice-print-mode app-root > .min-vh-100 > main > *:not(app-invoice-detail-page):not(app-invoice-print-page) {
     display: none !important;
   }
 }

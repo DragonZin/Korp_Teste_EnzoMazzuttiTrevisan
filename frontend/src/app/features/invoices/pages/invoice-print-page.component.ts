@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { ProductsApiService } from '../../products/data/products-api.service';
@@ -15,8 +15,40 @@ import { Invoice } from '../models/invoice.model';
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4 no-print">
+          <div>
+            <h2 class="h5 mb-1">Impressão da nota NF-{{ invoice()?.number }}</h2>
+            <p class="text-body-secondary mb-0">Revise os dados e use as ações abaixo.</p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <button
+              type="button"
+              class="btn btn-outline-success btn-sm"
+              (click)="closeInvoice()"
+              [disabled]="!invoice() || invoice()!.status === 2 || isClosingInvoice()"
+            >
+              {{ isClosingInvoice() ? 'Fechando...' : 'Fechar nota' }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              (click)="printAgain()"
+              [disabled]="!invoice()"
+            >
+              Imprimir
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">
+              Voltar para notas
+            </button>
+          </div>
+        </div>
+
         <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
           {{ error }}
+        </div>
+
+        <div *ngIf="successMessage() as success" class="alert alert-success" role="status">
+          {{ success }}
         </div>
 
         <div
@@ -100,12 +132,15 @@ import { Invoice } from '../models/invoice.model';
 })
 export class InvoicePrintPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
   private readonly productsApiService = inject(ProductsApiService);
 
   protected readonly invoice = signal<Invoice | null>(null);
   protected readonly isLoading = signal(false);
+  protected readonly isClosingInvoice = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly successMessage = signal<string | null>(null);
   protected readonly productNamesById = signal<Record<string, string>>({});
 
   ngOnInit(): void {
@@ -129,6 +164,39 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
 
   protected getProductDisplayName(productId: string): string {
     return this.productNamesById()[productId] ?? productId;
+  }
+
+  protected goBack(): void {
+    void this.router.navigate(['/invoices']);
+  }
+
+  protected printAgain(): void {
+    this.printDetails();
+  }
+
+  protected closeInvoice(): void {
+    const invoice = this.invoice();
+
+    if (!invoice || invoice.status === 2) {
+      return;
+    }
+
+    this.isClosingInvoice.set(true);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    this.invoicesApiService
+      .close(invoice.id)
+      .pipe(finalize(() => this.isClosingInvoice.set(false)))
+      .subscribe({
+        next: (updatedInvoice) => {
+          this.invoice.set(updatedInvoice);
+          this.successMessage.set(`Nota fiscal NF-${updatedInvoice.number} foi fechada com sucesso.`);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(this.getFriendlyErrorMessage(error));
+        }
+      });
   }
 
   private loadInvoice(id: string): void {

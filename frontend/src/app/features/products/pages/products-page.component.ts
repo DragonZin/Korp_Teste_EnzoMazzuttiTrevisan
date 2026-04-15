@@ -104,7 +104,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
                     </div>
                   </td>
                   <td class="text-end">
-                    {{ (product.price ?? 0) | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                    {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
                   </td>
                   <td class="text-end">
                     <div class="action-buttons">

@@ -1,4 +1,8 @@
 @media print {
+  .no-print {
+    display: none !important;
+  }
+
   .card {
     border: 0 !important;
     box-shadow: none !important;
