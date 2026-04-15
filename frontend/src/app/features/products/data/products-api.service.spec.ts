@@ -66,4 +66,22 @@ describe('ProductsApiService', () => {
       availableQuantity: 1,
     });
   });
+
+  it('should normalize localized string price values to numbers', () => {
+    service.getById('product-3').subscribe((product) => {
+      expect(product.price).toBe(1234.56);
+    });
+
+    const req = httpMock.expectOne(`${API_CONFIG.baseUrl}/products/product-3`);
+    expect(req.request.method).toBe('GET');
+
+    req.flush({
+      id: 'product-3',
+      code: 'PTB-789',
+      name: 'Produto com preço local',
+      stock: 8,
+      price: '1.234,56',
+      availableQuantity: 2,
+    });
+  });
 });

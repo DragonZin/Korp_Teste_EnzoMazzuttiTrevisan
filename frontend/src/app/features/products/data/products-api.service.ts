@@ -64,7 +64,7 @@ export class ProductsApiService {
   private normalizeProduct(product: ProductApiResponse): Product {
     const parsedPrice =
       typeof product.price === 'string'
-        ? Number(product.price.replace(',', '.'))
+        ? this.parsePrice(product.price)
         : product.price;
 
     const normalizedPrice = Number.isFinite(parsedPrice) ? Number(parsedPrice) : 0;
@@ -74,5 +74,19 @@ export class ProductsApiService {
       price: normalizedPrice,
       availableQuantity: product.availableQuantity ?? product.stock,
     };
+  }
+
+  private parsePrice(price: string): number {
+    const trimmedPrice = price.trim();
+
+    if (trimmedPrice.length === 0) {
+      return Number.NaN;
+    }
+
+    if (trimmedPrice.includes(',') && trimmedPrice.includes('.')) {
+      return Number(trimmedPrice.replace(/\./g, '').replace(',', '.'));
+    }
+
+    return Number(trimmedPrice.replace(',', '.'));
   }
 }
