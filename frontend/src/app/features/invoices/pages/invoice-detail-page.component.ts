@@ -186,18 +186,15 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
               </table>
             </div>
 
-            <div class="card border-0 bg-body-tertiary p-3 mt-3 no-print" *ngIf="canManageItems(invoice)">
-              <h4 class="h6 mb-3">Adicionar produto</h4>
-              <div class="d-flex justify-content-end">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  (click)="openAddProductModal()"
-                  [disabled]="isAddingProduct()"
-                >
-                  Adicionar produto
-                </button>
-              </div>
+            <div class="d-flex justify-content-end mt-3 no-print" *ngIf="canManageItems(invoice)">
+              <button
+                type="button"
+                class="btn btn-primary"
+                (click)="openAddProductModal()"
+                [disabled]="isAddingProduct()"
+              >
+                Adicionar produto
+              </button>
             </div>
           </div>
         </ng-container>
@@ -219,7 +216,7 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
         <div class="d-flex justify-content-between align-items-start mb-3">
           <div>
             <h3 id="invoice-add-product-modal-title" class="h5 mb-1">Adicionar produto</h3>
-            <p class="text-body-secondary mb-0">Selecione um item do catálogo para incluir na nota fiscal.</p>
+            <p class="text-body-secondary mb-0">Selecione um ou mais itens do catálogo para incluir na nota fiscal.</p>
           </div>
           <button type="button" class="btn-close" aria-label="Fechar modal" (click)="closeAddProductModal()"></button>
         </div>
@@ -246,14 +243,16 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
                 <td class="text-end">{{ product.availableQuantity }}</td>
                 <td class="text-end">{{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</td>
                 <td class="text-end">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    (click)="selectProductToAdd(product)"
-                    [disabled]="isAddingProduct()"
-                  >
-                    Selecionar
-                  </button>
+                <div class="form-check d-inline-flex justify-content-end m-0">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [id]="'catalog-product-' + product.id"
+                      [checked]="isProductSelectedToAdd(product.id)"
+                      [disabled]="isAddingProduct()"
+                      (change)="selectProductToAdd(product)"
+                    />
+                  </div>
                 </td>
               </tr>
               <tr *ngIf="!isLoadingProductsCatalog() && productsCatalog().length === 0">
@@ -299,21 +298,19 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
           </div>
         </div>
 
-        <div *ngIf="selectedProductIdToAdd()" class="modal-confirmation border-top mt-3 pt-3">
+        <div class="modal-confirmation border-top mt-3 pt-3">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-              <p class="mb-1 fw-semibold">Produto selecionado: {{ getSelectedCatalogProductLabel() }}</p>
-              <p class="text-body-secondary mb-0 small">Defina a quantidade e confirme a adição.</p>
+              <p class="mb-1 fw-semibold">{{ getAddProductSelectionSummary() }}</p>
+              <p class="text-body-secondary mb-0 small">Será adicionada quantidade padrão de 1 unidade para cada item selecionado.</p>
             </div>
-            <div class="d-flex align-items-center gap-3">
-              <app-quantity-stepper
-                [value]="quantityToAdd()"
-                [min]="1"
-                [disabled]="isAddingProduct()"
-                inputAriaLabel="Quantidade do produto para adicionar"
-                (commit)="commitAddQuantity($event)"
-              />
-              <button type="button" class="btn btn-primary" (click)="addSelectedProduct()" [disabled]="isAddingProduct()">
+            <div>
+              <button
+                type="button"
+                class="btn btn-primary"
+                (click)="addSelectedProduct()"
+                [disabled]="isAddingProduct() || selectedProductIdsToAdd().length === 0"
+              >
                 {{ isAddingProduct() ? 'Adicionando...' : 'Confirmar adição' }}
               </button>
             </div>
@@ -346,14 +343,13 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly isClosingInvoice = signal(false);
   protected readonly productsCatalog = signal<Product[]>([]);
   protected readonly isLoadingProductsCatalog = signal(false);
-  protected readonly selectedProductIdToAdd = signal('');
+  protected readonly selectedProductIdsToAdd = signal<string[]>([]);
   protected readonly isAddProductModalOpen = signal(false);
   protected readonly catalogPage = signal(1);
   protected readonly catalogPageSize = signal(10);
   protected readonly catalogTotalItems = signal(0);
   protected readonly catalogTotalPages = signal(0);
   protected readonly catalogSearchTerm = signal('');
-  protected readonly quantityToAdd = signal(1);
   protected readonly editableItemQuantities = signal<Partial<Record<string, number>>>({});
   protected readonly isAddingProduct = signal(false);
   protected readonly updatingProductId = signal<string | null>(null);
@@ -538,18 +534,6 @@ export class InvoiceDetailPageComponent implements OnInit {
     return this.updatingProductId() === productId || this.removingProductId() === productId || this.isAddingProduct();
   }
 
-  protected commitAddQuantity(rawValue: string | number): void {
-    const normalizedQuantity = this.normalizeQuantity(rawValue);
-    if (normalizedQuantity === null) {
-      this.errorMessage.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
-      this.quantityToAdd.set(1);
-      return;
-    }
-
-    this.errorMessage.set(null);
-    this.quantityToAdd.set(normalizedQuantity);
-  }
-
   protected openAddProductModal(): void {
     if (this.isAddingProduct()) {
       return;
@@ -557,8 +541,7 @@ export class InvoiceDetailPageComponent implements OnInit {
 
     this.errorMessage.set(null);
     this.successMessage.set(null);
-    this.selectedProductIdToAdd.set('');
-    this.quantityToAdd.set(1);
+    this.clearAddProductSelection();
     this.isAddProductModalOpen.set(true);
     this.loadProductsCatalog();
   }
@@ -575,17 +558,24 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected selectProductToAdd(product: Product): void {
     this.errorMessage.set(null);
     this.successMessage.set(null);
-    this.selectedProductIdToAdd.set(product.id);
-    this.quantityToAdd.set(1);
+    this.selectedProductIdsToAdd.update((selectedIds) => (
+      selectedIds.includes(product.id)
+        ? selectedIds.filter((selectedId) => selectedId !== product.id)
+        : [...selectedIds, product.id]
+    ));
   }
 
-  protected getSelectedCatalogProductLabel(): string {
-    const selectedProduct = this.productsCatalog().find((product) => product.id === this.selectedProductIdToAdd());
-    if (!selectedProduct) {
-      return 'Produto indisponível';
+  protected isProductSelectedToAdd(productId: string): boolean {
+    return this.selectedProductIdsToAdd().includes(productId);
+  }
+
+  protected getAddProductSelectionSummary(): string {
+    const totalSelected = this.selectedProductIdsToAdd().length;
+    if (totalSelected === 0) {
+      return 'Nenhum produto selecionado';
     }
 
-    return `${selectedProduct.code} - ${selectedProduct.name}`;
+    return `${totalSelected} ${totalSelected === 1 ? 'produto selecionado' : 'produtos selecionados'}`;
   }
 
   protected goToPreviousCatalogPage(): void {
@@ -634,25 +624,22 @@ export class InvoiceDetailPageComponent implements OnInit {
       return;
     }
 
-    const selectedProductId = this.selectedProductIdToAdd().trim();
+    const selectedProductIds = this.selectedProductIdsToAdd().map((productId) => productId.trim()).filter(Boolean);
 
-    if (!selectedProductId) {
-      this.errorMessage.set('Selecione um produto para adicionar na nota.');
+    if (selectedProductIds.length === 0) {
+      this.errorMessage.set('Selecione ao menos um produto para adicionar na nota.');
       return;
     }
 
-    if (invoice.products.some((item) => item.productId === selectedProductId)) {
-      this.errorMessage.set('Este produto já está na nota fiscal. Use o campo de quantidade para ajustar.');
+    const duplicatedIds = selectedProductIds.filter((productId) => (
+      invoice.products.some((item) => item.productId === productId)
+    ));
+    if (duplicatedIds.length > 0) {
+      this.errorMessage.set('Um ou mais produtos selecionados já estão na nota fiscal. Ajuste a seleção e tente novamente.');
       return;
     }
 
-    const quantity = this.normalizeQuantity(this.quantityToAdd());
-    if (quantity === null) {
-      this.errorMessage.set('A quantidade deve ser um número inteiro de no mínimo 1 unidade.');
-      this.quantityToAdd.set(1);
-      return;
-    }
-
+    const products = selectedProductIds.map((productId) => ({ productId, quantity: 1 }));
 
     this.isAddingProduct.set(true);
     this.errorMessage.set(null);
@@ -660,7 +647,7 @@ export class InvoiceDetailPageComponent implements OnInit {
 
     this.invoicesApiService
       .updateItems(invoice.id, {
-        products: [{ productId: selectedProductId, quantity }]
+        products
       })
       .pipe(finalize(() => this.isAddingProduct.set(false)))
       .subscribe({
@@ -668,7 +655,7 @@ export class InvoiceDetailPageComponent implements OnInit {
           this.handleInvoiceUpdated(updatedInvoice);
           this.clearAddProductSelection();
           this.isAddProductModalOpen.set(false);
-          this.successMessage.set('Produto adicionado à nota fiscal com sucesso.');
+          this.successMessage.set('Produtos adicionados à nota fiscal com sucesso.');
         },
         error: (error: HttpErrorResponse) => {
           this.errorMessage.set(this.getFriendlyErrorMessage(error));
@@ -900,11 +887,10 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   private clearAddProductSelection(): void {
-    this.selectedProductIdToAdd.set('');
-    this.quantityToAdd.set(1);
+    this.selectedProductIdsToAdd.set([]);
     this.errorMessage.set(null);
   }
-  
+
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0) {
       return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
