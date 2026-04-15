@@ -1,0 +1,158 @@
+<section class="card border-0 shadow-sm">
+    <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+        <h2 class="h5 mb-1">Notas fiscais</h2>
+        <p class="text-body-secondary mb-0">Listagem de notas.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-secondary" (click)="loadInvoices(page())" [disabled]="isLoading()">
+            Recarregar
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openCreateModal()" [disabled]="isLoading()">
+            Nova nota
+        </button>
+        </div>
+    </div>
+
+    <div class="d-flex align-items-end gap-2 mb-3">
+        <div>
+        <label class="form-label mb-1" for="invoice-status">Status</label>
+        <select
+            id="invoice-status"
+            class="form-select"
+            [value]="selectedStatus()"
+            (change)="onStatusChange($event)"
+            [disabled]="isLoading()"
+        >
+            <option value="">Todos</option>
+            <option value="1">Open</option>
+            <option value="2">Closed</option>
+        </select>
+        </div>
+    </div>
+
+    <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    <div *ngIf="successMessage() as success" class="alert alert-success" role="status">
+        {{ success }}
+    </div>
+
+    <div
+        *ngIf="isLoading()"
+        class="d-flex align-items-center gap-2 mb-3 text-body-secondary"
+        aria-live="polite"
+    >
+        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+        <span>Carregando notas fiscais...</span>
+    </div>
+
+    <div class="card border-0 bg-body-tertiary">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 invoice-table">
+            <thead class="table-light">
+            <tr>
+                <th scope="col">Número</th>
+                <th scope="col">Cliente</th>
+                <th scope="col">Status</th>
+                <th scope="col">Data</th>
+                <th scope="col" class="text-end">Total</th>
+                <th scope="col" class="text-end">Ações</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let invoice of invoices()">
+                <td data-label="Número">
+                <span class="fw-semibold">NF-{{ invoice.number }}</span>
+                </td>
+                <td data-label="Cliente">{{ invoice.customerName }}</td>
+                <td data-label="Status">
+                <span class="badge rounded-pill invoice-status-badge" [ngClass]="toInvoiceStatusClass(invoice.status)">
+                    {{ toInvoiceStatusLabel(invoice.status) }}
+                </span>
+                </td>
+                <td data-label="Data">{{ getRelevantInvoiceDate(invoice) | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td data-label="Total" class="text-end fw-semibold">{{ invoice.totalAmount | currency: 'BRL':'symbol':'1.2-2' }}</td>
+                <td data-label="Ações">
+                <div class="d-flex justify-content-end flex-wrap gap-2">
+                    <a
+                    class="btn btn-outline-primary btn-sm"
+                    [routerLink]="['/invoices', invoice.id]"
+                    [class.disabled]="isActionInProgress(invoice.id)"
+                    [attr.aria-disabled]="isActionInProgress(invoice.id)"
+                    >
+                    Editar
+                    </a>
+                    <button
+                    type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    (click)="deleteInvoice(invoice)"
+                    [disabled]="isActionInProgress(invoice.id)"
+                    >
+                    {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
+                    </button>
+                    <button
+                    type="button"
+                    class="btn btn-outline-success btn-sm"
+                    (click)="closeInvoice(invoice)"
+                    [disabled]="invoice.status === 2 || isActionInProgress(invoice.id)"
+                    >
+                    {{ closingInvoiceId() === invoice.id ? 'Fechando...' : 'Fechar nota' }}
+                    </button>
+                    <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    [disabled]="isActionInProgress(invoice.id)"
+                    (click)="printInvoice(invoice)"
+                    aria-label="Imprimir nota fiscal"
+                    >
+                    Imprimir
+                    </button>
+                </div>
+                </td>
+            </tr>
+
+            <tr *ngIf="!isLoading() && invoices().length === 0">
+                <td colspan="6" class="py-4 text-center">
+                <p class="mb-1 fw-semibold">Nenhuma nota encontrada</p>
+                <p class="mb-0 text-body-secondary">Ajuste os filtros ou recarregue a lista.</p>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <app-pagination-controls
+        [currentItemCount]="invoices().length"
+        [totalItems]="totalItems()"
+        [page]="page()"
+        [totalPages]="totalPages()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        [isLoading]="isLoading()"
+        pageSizeId="invoices-page-size"
+        ariaLabel="Paginação das notas"
+        (previous)="previousPage()"
+        (next)="nextPage()"
+        (pageSizeChange)="onPageSizeChange($event)"
+    />
+    </div>
+</section>
+<app-base-modal
+    [isOpen]="isCreateModalOpen()"
+    title="Nova nota fiscal"
+    subtitle="Preencha os dados do cliente para criar a nota."
+    size="md"
+    [closeOnBackdropClick]="!isCreatingInvoice()"
+    (closed)="closeCreateModal()"
+>
+<app-invoice-form
+    [isSubmitting]="isCreatingInvoice()"
+    [apiErrorMessage]="createApiError()"
+    [apiFieldErrors]="createFieldErrors()"
+    (submitted)="submitCreateInvoice($event)"
+    (cancelled)="closeCreateModal()"
+/>
+</app-base-modal>

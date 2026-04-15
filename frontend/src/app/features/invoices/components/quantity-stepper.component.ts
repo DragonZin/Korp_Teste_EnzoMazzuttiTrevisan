@@ -5,21 +5,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Out
   selector: 'app-quantity-stepper',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="d-inline-flex align-items-center gap-2 quantity-stepper">
-      <input
-        type="number"
-        class="form-control form-control-sm quantity-input"
-        [value]="displayValue"
-        [attr.min]="min"
-        [disabled]="disabled"
-        [attr.aria-label]="inputAriaLabel"
-        (input)="onInput(($any($event.target)).value)"
-        (blur)="onCommit()"
-        (keydown.enter)="onCommit()"
-      />
-    </div>
-  `,
+  templateUrl: './quantity-stepper.component.html',
   styles: [
     `
       .quantity-input {

@@ -1,0 +1,44 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="mb-3">
+    <label for="create-customer-name" class="form-label">Nome</label>
+    <input
+        id="create-customer-name"
+        type="text"
+        class="form-control"
+        [class.is-invalid]="hasControlError('customerName')"
+        formControlName="customerName"
+        maxlength="255"
+    />
+    <div class="invalid-feedback" *ngIf="hasControlError('customerName')">
+        {{ getControlErrorMessage('customerName') }}
+    </div>
+    </div>
+
+    <div class="mb-3">
+    <label for="create-customer-document" class="form-label">Documento</label>
+    <input
+        id="create-customer-document"
+        type="text"
+        class="form-control"
+        [class.is-invalid]="hasControlError('customerDocument')"
+        formControlName="customerDocument"
+        maxlength="18"
+    />
+    <div class="invalid-feedback" *ngIf="hasControlError('customerDocument')">
+        {{ getControlErrorMessage('customerDocument') }}
+    </div>
+    </div>
+
+    <div *ngIf="apiErrorMessage()" class="alert alert-danger py-2" role="alert">
+    {{ apiErrorMessage() }}
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+    <button type="button" class="btn btn-outline-secondary" (click)="cancelled.emit()" [disabled]="isSubmitting()">
+        Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary" [disabled]="isSubmitting()">
+        {{ isSubmitting() ? 'Criando...' : 'Criar nota' }}
+    </button>
+    </div>
+</form>

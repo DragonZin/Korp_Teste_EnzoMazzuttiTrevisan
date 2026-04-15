@@ -7,31 +7,7 @@ export type BaseModalSize = 'sm' | 'md' | 'lg';
   selector: 'app-base-modal',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div *ngIf="isOpen" class="app-modal-backdrop" role="presentation" (click)="onBackdropClick()">
-      <div
-        class="app-modal-dialog"
-        [ngClass]="sizeClass"
-        role="dialog"
-        aria-modal="true"
-        [attr.aria-labelledby]="title ? titleId : null"
-        (click)="$event.stopPropagation()"
-      >
-        <div class="app-modal-header" *ngIf="title || subtitle">
-          <div>
-            <h3 *ngIf="title" [id]="titleId" class="app-modal-title">{{ title }}</h3>
-            <p *ngIf="subtitle" class="app-modal-subtitle">{{ subtitle }}</p>
-          </div>
-
-          <button type="button" class="btn-close" aria-label="Fechar modal" (click)="requestClose()"></button>
-        </div>
-
-        <div class="app-modal-content">
-          <ng-content></ng-content>
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './base-modal.component.html',
   styleUrl: './base-modal.component.scss',
 })
 export class BaseModalComponent {

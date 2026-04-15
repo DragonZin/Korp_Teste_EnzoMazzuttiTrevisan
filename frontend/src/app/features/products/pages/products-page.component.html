@@ -1,0 +1,133 @@
+<section class="card border-0 shadow-sm">
+    <div class="card-body">
+    <div class="page-header">
+        <div>
+        <h2 class="h5 mb-1">Produtos</h2>
+        <p class="text-body-secondary mb-0">Listagem e manutenção de produtos.</p>
+        </div>
+
+        <div class="page-header__actions">
+        <button
+            type="button"
+            class="btn btn-outline-secondary"
+            (click)="loadProducts()"
+            [disabled]="isLoading()"
+        >
+            Recarregar
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openCreateDrawer()">Novo produto</button>
+        </div>
+    </div>
+
+    <div class="kpi-grid mb-3" *ngIf="!isInitialLoading()">
+        <article class="kpi-card">
+        <p class="kpi-card__label">Total de produtos</p>
+        <p class="kpi-card__value">{{ totalItems() }}</p>
+        </article>
+
+        <article class="kpi-card">
+        <p class="kpi-card__label">Estoque total (página)</p>
+        <p class="kpi-card__value">{{ totalStock() }}</p>
+        </article>
+
+        <article class="kpi-card">
+        <p class="kpi-card__label">Disponível (página)</p>
+        <p class="kpi-card__value">{{ totalAvailable() }}</p>
+        </article>
+    </div>
+
+    <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+
+    <div class="table-responsive" *ngIf="isInitialLoading(); else productsTable">
+        <table class="table table-hover align-middle mb-0">
+        <tbody>
+            <tr *ngFor="let row of skeletonRows">
+            <td colspan="6" class="py-2">
+                <div class="skeleton-row">
+                <span class="placeholder skeleton-cell skeleton-cell--sm"></span>
+                <span class="placeholder skeleton-cell"></span>
+                <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                </div>
+            </td>
+            </tr>
+        </tbody>
+        </table>
+    </div>
+
+    <ng-template #productsTable>
+        <app-products-table
+        [products]="products()"
+        [isLoading]="isLoading()"
+        [showActions]="true"
+        [availableQuantityTemplate]="availableQuantityCell"
+        [actionsTemplate]="productsActionsCell"
+        />
+    </ng-template>
+
+    <ng-template #availableQuantityCell let-product>
+        <div class="available-wrap">
+        <span>{{ product.availableQuantity }}</span>
+        <span class="badge" [ngClass]="availabilityClass(product)">
+            {{ availabilityLabel(product) }}
+        </span>
+        </div>
+    </ng-template>
+
+    <ng-template #productsActionsCell let-product>
+        <div class="action-buttons">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openEditDrawer(product)">
+            Editar
+        </button>
+        <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            (click)="deleteProduct(product)"
+            [disabled]="isDeletingId() === product.id"
+        >
+            {{ isDeletingId() === product.id ? 'Excluindo...' : 'Excluir' }}
+        </button>
+        </div>
+    </ng-template>
+
+    <div *ngIf="isLoading() && !isInitialLoading()" class="small text-body-secondary mt-2" aria-live="polite">
+        Atualizando lista...
+    </div>
+
+    <app-pagination-controls
+        [currentItemCount]="products().length"
+        [totalItems]="totalItems()"
+        [page]="page()"
+        [totalPages]="totalPages()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        [isLoading]="isLoading()"
+        pageSizeId="products-page-size"
+        ariaLabel="Paginação de produtos"
+        (previous)="goToPreviousPage()"
+        (next)="goToNextPage()"
+        (pageSizeChange)="onPageSizeChange($event)"
+    />
+    </div>
+</section>
+
+<app-base-modal
+    [isOpen]="isDrawerOpen()"
+    [title]="drawerMode() === 'create' ? 'Novo produto' : 'Editar produto'"
+    subtitle="Preencha os campos para salvar."
+    size="md"
+    [closeOnBackdropClick]="!isSaving()"
+    (closed)="closeDrawer()"
+>
+    <app-product-form
+        [product]="selectedProduct()"
+        [isSubmitting]="isSaving()"
+        [apiErrorMessage]="formApiErrorMessage()"
+        [apiFieldErrors]="formApiFieldErrors()"
+        (submitted)="submitForm($event)"
+        (cancelled)="closeDrawer()"
+    />
+</app-base-modal>

@@ -7,49 +7,7 @@ export const DEFAULT_PAGE_SIZE_OPTIONS: ReadonlyArray<number> = [ 10, 25, 50, 75
   selector: 'app-pagination-controls',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div
-      [ngClass]="containerClass"
-      *ngIf="!isLoading && totalItems > 0"
-    >
-      <p [ngClass]="summaryClass">
-        Exibindo {{ currentItemCount }} de {{ totalItems }} itens (página {{ page }} de {{ totalPages }}).
-      </p>
-
-      <div [ngClass]="controlsClass">
-        <label [ngClass]="pageSizeLabelClass" [for]="pageSizeId">{{ pageSizeLabel }}</label>
-        <select
-          [id]="pageSizeId"
-          class="form-select form-select-sm"
-          style="width: auto"
-          [value]="pageSize"
-          [disabled]="isLoading"
-          (change)="onPageSizeSelection($event)"
-        >
-          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-        </select>
-
-        <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="ariaLabel">
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            (click)="previous.emit()"
-            [disabled]="isLoading || page <= 1"
-          >
-            Anterior
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            (click)="next.emit()"
-            [disabled]="isLoading || page >= totalPages"
-          >
-            Próxima
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './pagination-controls.component.html',
 })
 export class PaginationControlsComponent {
   @Input({ required: true }) currentItemCount = 0;

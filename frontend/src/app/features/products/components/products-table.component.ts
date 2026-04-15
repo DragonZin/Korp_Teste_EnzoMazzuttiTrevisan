@@ -12,67 +12,7 @@ export interface ProductsTableCellContext {
   selector: 'app-products-table',
   standalone: true,
   imports: [CommonModule, CurrencyPipe],
-  template: `
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead>
-          <tr>
-            <th>SKU</th>
-            <th>Nome</th>
-            <th class="text-end">Estoque</th>
-            <th class="text-end" *ngIf="showAvailableQuantity">Qtd. disponível</th>
-            <th class="text-end">Preço</th>
-            <th class="text-end" *ngIf="showQuantitySelector">{{ quantitySelectorHeader }}</th>
-            <th class="text-end" *ngIf="showActions">{{ actionsHeader }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let product of products; trackBy: trackByProductId">
-            <td>{{ product.code }}</td>
-            <td>{{ product.name }}</td>
-            <td class="text-end">{{ product.stock }}</td>
-
-            <td class="text-end" *ngIf="showAvailableQuantity">
-              <ng-container
-                *ngIf="availableQuantityTemplate; else defaultAvailableQuantity"
-                [ngTemplateOutlet]="availableQuantityTemplate"
-                [ngTemplateOutletContext]="{ $implicit: product, product: product }"
-              />
-              <ng-template #defaultAvailableQuantity>
-                {{ product.availableQuantity }}
-              </ng-template>
-            </td>
-
-            <td class="text-end">
-              {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
-            </td>
-
-            <td class="text-end" *ngIf="showQuantitySelector">
-              <ng-container
-                *ngIf="quantitySelectorTemplate"
-                [ngTemplateOutlet]="quantitySelectorTemplate"
-                [ngTemplateOutletContext]="{ $implicit: product, product: product }"
-              />
-            </td>
-
-            <td class="text-end" *ngIf="showActions">
-              <ng-container
-                *ngIf="actionsTemplate"
-                [ngTemplateOutlet]="actionsTemplate"
-                [ngTemplateOutletContext]="{ $implicit: product, product: product }"
-              />
-            </td>
-          </tr>
-
-          <tr *ngIf="!isLoading && products.length === 0">
-            <td [attr.colspan]="visibleColumnsCount()" class="text-center text-body-secondary py-4">
-              {{ emptyMessage }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  `,
+  templateUrl: './products-table.component.html',
 })
 export class ProductsTableComponent {
   @Input({ required: true }) products: Product[] = [];
