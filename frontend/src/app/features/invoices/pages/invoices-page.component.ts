@@ -60,15 +60,24 @@ import { Invoice } from '../models/invoice.model';
             <div class="me-2">
               <strong>NF-{{ invoice.number }}</strong>
               <p class="mb-0 text-body-secondary">
-                {{ invoice.customerName }} •
                 <span class="badge" [class.bg-success]="invoice.status === 1" [class.bg-secondary]="invoice.status === 2">
                   {{ getStatusLabel(invoice.status) }}
-                </span>
-                •
+                </span> •
+                {{ invoice.customerName }} •
                 {{ getInvoiceDate(invoice) }}
               </p>
             </div>
-            <a class="btn btn-outline-primary btn-sm" [routerLink]="['/invoices', invoice.id]">Detalhar</a>
+            <div class="d-flex align-items-center gap-2">
+              <a class="btn btn-outline-primary btn-sm" [routerLink]="['/invoices', invoice.id]">Detalhar</a>
+              <button
+                type="button"
+                class="btn btn-outline-danger btn-sm"
+                (click)="deleteInvoice(invoice)"
+                [disabled]="isLoading() || deletingInvoiceId() === invoice.id"
+              >
+                {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
+              </button>
+            </div>
           </li>
 
           <li *ngIf="!isLoading() && invoices().length === 0" class="list-group-item px-0 py-4 text-center">
@@ -115,6 +124,7 @@ export class InvoicesPageComponent implements OnInit {
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);
   readonly selectedStatus = signal<'1' | '2' | ''>('');
+  readonly deletingInvoiceId = signal<string | null>(null);
 
   ngOnInit(): void {
     this.loadInvoices();
@@ -168,6 +178,28 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     this.loadInvoices(this.page() + 1);
+  }
+
+  deleteInvoice(invoice: Invoice): void {
+    const shouldDelete = window.confirm(`Deseja realmente excluir a nota NF-${invoice.number}?`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.deletingInvoiceId.set(invoice.id);
+
+    this.invoicesApiService
+      .delete(invoice.id)
+      .pipe(finalize(() => this.deletingInvoiceId.set(null)))
+      .subscribe({
+        next: () => {
+          this.loadInvoices(this.page());
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(`Não foi possível excluir a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
+        }
+      });
   }
 
   getStatusLabel(status: number): 'Open' | 'Closed' {

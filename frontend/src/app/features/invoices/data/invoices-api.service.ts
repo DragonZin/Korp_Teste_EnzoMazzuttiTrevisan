@@ -50,6 +50,10 @@ export class InvoicesApiService {
   updateItems(id: string, payload: ManageInvoiceItemsRequest): Observable<Invoice> {
     return this.http.patch<Invoice>(`${this.invoicesUrl}/${id}/items`, payload);
   }
+  
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.invoicesUrl}/${id}`);
+  }
 
   removeProduct(invoiceId: string, productId: string): Observable<void> {
     return this.http.delete<void>(`${this.invoicesUrl}/${invoiceId}/product/${productId}`);
