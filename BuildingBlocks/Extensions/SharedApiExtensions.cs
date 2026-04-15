@@ -1,9 +1,10 @@
 using BuildingBlocks.Options;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using BuildingBlocks.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BuildingBlocks.Extensions;
@@ -18,6 +19,9 @@ public static class SharedApiExtensions
         {
             configureOptions?.Invoke(options);
         });
+
+        services.AddSingleton<IdempotencyMetrics>();
+        services.AddHostedService<IdempotencyCleanupHostedService>();
 
         services.Configure<ApiBehaviorOptions>(options =>
         {

@@ -89,6 +89,14 @@ Body:
   - `PUT /api/invoices/{id}/close`
   - operações internas de ajuste de reserva/estoque disparadas durante `PATCH /items`, `DELETE item` e `DELETE invoice`
 - Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
+- A janela de idempotência é configurável por `SharedApi:IdempotencyRetentionWindow` (padrão sugerido: `72:00:00` na ApiInvoice).
+- Após o fim da janela, a mesma chave deixa de ser reaproveitada e a operação volta a ser processada normalmente.
+- A limpeza dos registros expirados roda em background com `SharedApi:IdempotencyCleanupInterval` e `SharedApi:IdempotencyCleanupBatchSize`.
+
+### Métricas de idempotência
+
+- `idempotency.table.size` (gauge): quantidade de registros atuais na tabela de idempotência.
+- `idempotency.
 
 ## Regras relevantes
 

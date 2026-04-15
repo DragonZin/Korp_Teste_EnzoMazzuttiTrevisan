@@ -3,6 +3,7 @@ using ApiInvoice.Interfaces;
 using ApiInvoice.Services;
 using BuildingBlocks.Abstractions;
 using BuildingBlocks.Extensions;
+using BuildingBlocks.Options;
 using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
@@ -54,6 +55,7 @@ builder.Services.AddControllers();
 
 builder.Services.AddSharedApiDefaults(options =>
 {
+    builder.Configuration.GetSection(SharedApiOptions.SectionName).Bind(options);
     options.ShouldHandleIdempotencyRequest = IdempotencyEndpointMatcher.ShouldHandle;
     options.UniqueConstraintConflictDetail = "Já existe uma nota fiscal com esse número.";
 });

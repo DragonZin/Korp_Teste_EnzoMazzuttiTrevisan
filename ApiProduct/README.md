@@ -149,6 +149,14 @@ Body:
 - Header: `Idempotency-Key`
 - Aplicado em: `POST /api/products` e nas operações internas de ajuste de inventário acionadas pela ApiInvoice.
 - Quando enviado, requisições repetidas com mesma chave e endpoint retornam a mesma resposta já persistida.
+- A janela de idempotência é configurável por `SharedApi:IdempotencyRetentionWindow` (padrão sugerido: `24:00:00` na ApiProduct).
+- Após o fim da janela, a mesma chave deixa de ser reaproveitada e a operação volta a ser processada normalmente.
+- A limpeza dos registros expirados roda em background com `SharedApi:IdempotencyCleanupInterval` e `SharedApi:IdempotencyCleanupBatchSize`.
+
+### Métricas de idempotência
+
+- `idempotency.table.size` (gauge): quantidade de registros atuais na tabela de idempotência.
+- `idempotency.key.reuse_rate` (gauge): proporção de requisições idempotentes que reutilizaram resposta já persistida.
 
 ## Regras relevantes
 

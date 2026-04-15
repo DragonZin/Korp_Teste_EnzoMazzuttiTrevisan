@@ -3,6 +3,7 @@ using ApiProduct.Interfaces;
 using ApiProduct.Services;
 using BuildingBlocks.Abstractions;
 using BuildingBlocks.Extensions;
+using BuildingBlocks.Options;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,7 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddControllers();
 builder.Services.AddSharedApiDefaults(options =>
 {
+    builder.Configuration.GetSection(SharedApiOptions.SectionName).Bind(options);
     options.ShouldHandleIdempotencyRequest = IdempotencyEndpointMatcher.ShouldHandle;
     options.UniqueConstraintConflictDetail = "Já existe um produto com esse código.";
 });

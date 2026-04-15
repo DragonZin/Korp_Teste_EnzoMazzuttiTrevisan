@@ -1,6 +1,5 @@
 using BuildingBlocks.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace BuildingBlocks.Extensions;
 
@@ -16,6 +15,8 @@ public static class ModelBuilderExtensions
 
             entity.HasIndex(i => new { i.Key, i.Endpoint })
                 .IsUnique();
+
+            entity.HasIndex(i => i.CreatedAt);
 
             entity.Property(i => i.Id)
                 .HasColumnName("id");

@@ -1,9 +1,10 @@
 using BuildingBlocks.Abstractions;
 using BuildingBlocks.Models;
 using BuildingBlocks.Options;
+using BuildingBlocks.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Http;
 
 namespace BuildingBlocks.Middlewares;
 
@@ -13,11 +14,16 @@ public class IdempotencyMiddleware
 
     private readonly RequestDelegate _next;
     private readonly SharedApiOptions _options;
+    private readonly IdempotencyMetrics _metrics;
 
-    public IdempotencyMiddleware(RequestDelegate next, IOptions<SharedApiOptions> options)
+    public IdempotencyMiddleware(
+        RequestDelegate next,
+        IOptions<SharedApiOptions> options,
+        IdempotencyMetrics metrics)
     {
         _next = next;
         _options = options.Value;
+        _metrics = metrics;
     }
 
     public async Task InvokeAsync(HttpContext context, IIdempotencyDbContext dbContext)
@@ -30,15 +36,28 @@ public class IdempotencyMiddleware
             return;
         }
 
+        var retentionWindow = _options.IdempotencyRetentionWindow <= TimeSpan.Zero
+            ? TimeSpan.FromHours(72)
+            : _options.IdempotencyRetentionWindow;
+        var expirationCutoff = DateTime.UtcNow.Subtract(retentionWindow);
+
         var key = idempotencyValues.ToString().Trim();
         var endpoint = context.Request.Path.Value ?? string.Empty;
 
+        await dbContext.IdempotencyKeys
+            .Where(i => i.Key == key && i.Endpoint == endpoint && i.CreatedAt < expirationCutoff)
+            .ExecuteDeleteAsync();
+
         var existingRecord = await dbContext.IdempotencyKeys
             .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Key == key && i.Endpoint == endpoint);
+            .FirstOrDefaultAsync(i =>
+                i.Key == key
+                && i.Endpoint == endpoint
+                && i.CreatedAt >= expirationCutoff);
 
         if (existingRecord is not null)
         {
+            _metrics.RecordRequest(wasReused: true);
             context.Response.StatusCode = existingRecord.StatusCode;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(existingRecord.Response);
@@ -71,15 +90,20 @@ public class IdempotencyMiddleware
             try
             {
                 await dbContext.SaveChangesAsync();
+                _metrics.RecordRequest(wasReused: false);
             }
             catch (DbUpdateException)
             {
                 var concurrentRecord = await dbContext.IdempotencyKeys
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(i => i.Key == key && i.Endpoint == endpoint);
+                    .FirstOrDefaultAsync(i =>
+                        i.Key == key
+                        && i.Endpoint == endpoint
+                        && i.CreatedAt >= expirationCutoff);
 
                 if (concurrentRecord is not null)
                 {
+                    _metrics.RecordRequest(wasReused: true);
                     context.Response.StatusCode = concurrentRecord.StatusCode;
                     context.Response.ContentType = "application/json";
                     context.Response.Body = originalBodyStream;
