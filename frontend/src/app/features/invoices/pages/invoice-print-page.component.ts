@@ -4,7 +4,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { ProductsApiService } from '../../products/data/products-api.service';
+import { InvoiceProductLookupService } from '../data/invoice-product-lookup.service';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
 import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.component';
@@ -106,7 +106,7 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
-  private readonly productsApiService = inject(ProductsApiService);
+  private readonly invoiceProductLookupService = inject(InvoiceProductLookupService);
 
   protected readonly invoice = signal<Invoice | null>(null);
   protected readonly isLoading = signal(false);
@@ -199,46 +199,11 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
   }
 
   private loadProductNames(invoice: Invoice): void {
-    const uniqueProductIds = [...new Set(invoice.products.map((item) => item.productId).filter(Boolean))];
+    const productIds = invoice.products.map((item) => item.productId);
 
-    if (uniqueProductIds.length === 0) {
-      this.productNamesById.set({});
-      this.productCodesById.set({});
-      return;
-    }
-
-    this.productsApiService.getByIds(uniqueProductIds).subscribe({
-      next: (products) => {
-        const namesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
-          accumulator[productId] = productId;
-          return accumulator;
-        }, {});
-        const codesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
-          accumulator[productId] = '-';
-          return accumulator;
-        }, {});
-
-        products.forEach((product) => {
-          namesLookup[product.id] = product.name;
-          codesLookup[product.id] = product.code;
-        });
-
-        this.productNamesById.set(namesLookup);
-        this.productCodesById.set(codesLookup);
-      },
-      error: () => {
-        const fallbackNamesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
-          accumulator[productId] = productId;
-          return accumulator;
-        }, {});
-        const fallbackCodesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
-          accumulator[productId] = '-';
-          return accumulator;
-        }, {});
-
-        this.productNamesById.set(fallbackNamesLookup);
-        this.productCodesById.set(fallbackCodesLookup);
-      }
+    this.invoiceProductLookupService.getLookupByProductIds(productIds).subscribe(({ namesById, codesById }) => {
+      this.productNamesById.set(namesById);
+      this.productCodesById.set(codesById);
     });
   }
 
