@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 
 import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { InvoicesApiService } from '../data/invoices-api.service';
+import { InvoiceItemsFacade } from '../data/invoice-items.facade';
 import { Invoice } from '../models/invoice.model';
 import { ProductsApiService } from '../../products/data/products-api.service';
 import { InvoiceProductLookupService } from '../data/invoice-product-lookup.service';
@@ -27,6 +28,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
+  private readonly invoiceItemsFacade = inject(InvoiceItemsFacade);
   private readonly productsApiService = inject(ProductsApiService);
   private readonly invoiceProductLookupService = inject(InvoiceProductLookupService);
   
@@ -398,67 +400,56 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   protected commitItemQuantity(productId: string, rawValue: string | number): void {
-    const invoice = this.invoice();
+    this.updatingProductId.set(productId);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
 
-    if (!invoice) {
-      return;
-    }
+    this.invoiceItemsFacade
+      .updateItems(this.invoice(), productId, rawValue)
+      .pipe(finalize(() => this.updatingProductId.set(null)))
+      .subscribe((result) => {
+        if (result.editableQuantity !== undefined) {
+          this.editableItemQuantities.update((current) => ({
+            ...current,
+            [productId]: result.editableQuantity
+          }));
+        }
 
-    const currentItem = invoice.products.find((item) => item.productId === productId);
-    if (!currentItem) {
-      this.errorMessage.set('Produto não encontrado na nota fiscal.');
-      return;
-    }
+        if (!result.success) {
+          this.errorMessage.set(result.errorMessage ?? null);
+          return;
+        }
 
-    const normalizedQuantity = this.normalizeQuantity(rawValue);
-    if (normalizedQuantity === null) {
-      this.errorMessage.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
-      this.editableItemQuantities.update((current) => ({
-        ...current,
-        [productId]: currentItem.quantity
-      }));
-      return;
-    }
+        if (result.updatedInvoice) {
+          this.handleInvoiceUpdated(result.updatedInvoice);
+        }
 
-    this.editableItemQuantities.update((current) => ({
-      ...current,
-      [productId]: normalizedQuantity
-    }));
-
-    if (normalizedQuantity === currentItem.quantity) {
-      return;
-    }
-
-    this.updateProductQuantity(productId, normalizedQuantity);
+        if (!result.noChanges) {
+          this.successMessage.set(result.message ?? null);
+        }
+      });
   }
 
   protected removeProduct(productId: string): void {
-    const invoice = this.invoice();
-
-    if (!invoice) {
-      return;
-    }
-
-    if (!this.canManageItems(invoice)) {
-      this.errorMessage.set('Nota fiscal fechada não pode ser alterada.');
-      return;
-    }
-
+    const invoiceId = this.invoice()?.id;
     this.removingProductId.set(productId);
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.invoicesApiService
-      .removeProduct(invoice.id, productId)
+    this.invoiceItemsFacade
+      .removeProduct(this.invoice(), productId)
       .pipe(finalize(() => this.removingProductId.set(null)))
-      .subscribe({
-        next: () => {
-          this.loadInvoice(invoice.id);
-          this.successMessage.set('Produto removido da nota fiscal com sucesso.');
-        },
-        error: (error: HttpErrorResponse) => {
-          this.errorMessage.set(this.getFriendlyErrorMessage(error));
+      .subscribe((result) => {
+        if (!result.success) {
+          this.errorMessage.set(result.errorMessage ?? null);
+          return;
         }
+
+        if (result.shouldReloadInvoice && invoiceId) {
+          this.loadInvoice(invoiceId);
+        }
+
+        this.successMessage.set(result.message ?? null);
       });
   }
 
@@ -515,43 +506,6 @@ export class InvoiceDetailPageComponent implements OnInit {
           this.productsCatalog.set([]);
           this.catalogTotalItems.set(0);
           this.catalogTotalPages.set(0);
-        }
-      });
-  }
-
-  private updateProductQuantity(productId: string, quantity: number): void {
-    const invoice = this.invoice();
-
-    if (!invoice) {
-      return;
-    }
-
-    if (!this.canManageItems(invoice)) {
-      this.errorMessage.set('Nota fiscal fechada não pode ser alterada.');
-      return;
-    }
-
-    if (quantity < 1) {
-      this.errorMessage.set('A quantidade deve ser de no mínimo 1 unidade.');
-      return;
-    }
-
-    this.updatingProductId.set(productId);
-    this.errorMessage.set(null);
-    this.successMessage.set(null);
-
-    this.invoicesApiService
-      .updateItems(invoice.id, {
-        products: [{ productId, quantity }]
-      })
-      .pipe(finalize(() => this.updatingProductId.set(null)))
-      .subscribe({
-        next: (updatedInvoice) => {
-          this.handleInvoiceUpdated(updatedInvoice);
-          this.successMessage.set('Quantidade do produto atualizada com sucesso.');
-        },
-        error: (error: HttpErrorResponse) => {
-          this.errorMessage.set(this.getFriendlyErrorMessage(error));
         }
       });
   }

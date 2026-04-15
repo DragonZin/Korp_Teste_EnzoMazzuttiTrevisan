@@ -8,6 +8,7 @@ import { Invoice } from '../models/invoice.model';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './invoice-summary-card.component.html',
+  styleUrl: './invoice-summary-card.component.scss',
 })
 export class InvoiceSummaryCardComponent {
   readonly invoice = input.required<Invoice>();

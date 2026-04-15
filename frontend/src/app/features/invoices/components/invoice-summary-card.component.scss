@@ -1,0 +1,28 @@
+:host {
+  display: block;
+}
+
+@media print {
+  .row {
+    --bs-gutter-x: 0.75rem;
+    --bs-gutter-y: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .col-md-4 {
+    flex: 0 0 33.3333%;
+    max-width: 33.3333%;
+  }
+
+  .col-md-3 {
+    flex: 0 0 25%;
+    max-width: 25%;
+  }
+
+  .form-control-plaintext {
+    padding: 0.35rem 0.6rem !important;
+    min-height: auto;
+    line-height: 1.3;
+  }
+}
