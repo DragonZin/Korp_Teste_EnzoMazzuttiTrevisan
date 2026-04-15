@@ -6,6 +6,19 @@
     background-color: var(--bs-body-bg);
 }
 
+.qty-button {
+    min-width: 2rem;
+    padding: 0.2rem 0.5rem;
+    line-height: 1;
+}
+
+.quantity-value {
+    min-width: 2rem;
+    text-align: center;
+    display: inline-block;
+    font-weight: 600;
+}
+
 @media print {
     .no-print {
     display: none !important;

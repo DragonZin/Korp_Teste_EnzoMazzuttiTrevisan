@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
 import { ProductsApiService } from '../../products/data/products-api.service';
+import { Product } from '../../products/models/product.model';
 
 @Component({
   selector: 'app-invoice-detail-page',
@@ -142,6 +143,7 @@ import { ProductsApiService } from '../../products/data/products-api.service';
                     <th class="text-end">Preço unitário</th>
                     <th class="text-end">Quantidade</th>
                     <th class="text-end">Total</th>
+                    <th class="text-end no-print">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -149,17 +151,103 @@ import { ProductsApiService } from '../../products/data/products-api.service';
                     <td>{{ getProductCode(product.productId) }}</td>
                     <td>{{ getProductDisplayName(product.productId) }}</td>
                     <td class="text-end">{{ product.unitPrice | currency: 'BRL' }}</td>
-                    <td class="text-end">{{ product.quantity }}</td>
+                    <td class="text-end">
+                      <div class="d-inline-flex align-items-center gap-2" *ngIf="canManageItems(invoice); else readOnlyQuantity">
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm qty-button"
+                          (click)="decrementItemQuantity(product.productId)"
+                          [disabled]="isItemActionDisabled(product.productId) || product.quantity <= 1"
+                          aria-label="Diminuir quantidade"
+                        >
+                          -
+                        </button>
+                        <span class="quantity-value">{{ product.quantity }}</span>
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm qty-button"
+                          (click)="incrementItemQuantity(product.productId)"
+                          [disabled]="isItemActionDisabled(product.productId)"
+                          aria-label="Aumentar quantidade"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <ng-template #readOnlyQuantity>{{ product.quantity }}</ng-template>
+                    </td>
                     <td class="text-end">{{ product.totalPrice | currency: 'BRL' }}</td>
+                    <td class="text-end no-print">
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger btn-sm"
+                        (click)="removeProduct(product.productId)"
+                        [disabled]="!canManageItems(invoice) || isItemActionDisabled(product.productId)"
+                      >
+                        {{ removingProductId() === product.productId ? 'Excluindo...' : 'Excluir' }}
+                      </button>
+                    </td>
                   </tr>
 
                   <tr *ngIf="invoice.products.length === 0">
-                    <td colspan="5" class="text-center text-body-secondary py-3">
+                    <td colspan="6" class="text-center text-body-secondary py-3">
                       Esta nota não possui produtos cadastrados.
                     </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <div class="card border-0 bg-body-tertiary p-3 mt-3 no-print" *ngIf="canManageItems(invoice)">
+              <h4 class="h6 mb-3">Adicionar produto</h4>
+              <div class="row g-2 align-items-end">
+                <div class="col-md-8">
+                  <label class="form-label mb-1" for="invoice-add-product">Produto</label>
+                  <select
+                    id="invoice-add-product"
+                    class="form-select"
+                    [value]="selectedProductIdToAdd()"
+                    [disabled]="isAddingProduct() || isLoadingProductsCatalog()"
+                    (change)="selectedProductIdToAdd.set(($any($event.target)).value)"
+                  >
+                    <option value="">Selecione um produto</option>
+                    <option *ngFor="let product of productsCatalog()" [value]="product.id">
+                      {{ product.code }} - {{ product.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label mb-1">Quantidade</label>
+                  <div class="d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary qty-button"
+                      (click)="decreaseAddQuantity()"
+                      [disabled]="isAddingProduct() || quantityToAdd() <= 1"
+                    >
+                      -
+                    </button>
+                    <span class="quantity-value">{{ quantityToAdd() }}</span>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary qty-button"
+                      (click)="increaseAddQuantity()"
+                      [disabled]="isAddingProduct()"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-3">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  (click)="addSelectedProduct()"
+                  [disabled]="isAddingProduct() || isLoadingProductsCatalog()"
+                >
+                  {{ isAddingProduct() ? 'Adicionando...' : 'Adicionar produto' }}
+                </button>
+              </div>
             </div>
           </div>
         </ng-container>
@@ -193,6 +281,13 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly editedCustomerDocument = signal('');
   protected readonly isUpdatingCustomerDocument = signal(false);
   protected readonly isClosingInvoice = signal(false);
+  protected readonly productsCatalog = signal<Product[]>([]);
+  protected readonly isLoadingProductsCatalog = signal(false);
+  protected readonly selectedProductIdToAdd = signal('');
+  protected readonly quantityToAdd = signal(1);
+  protected readonly isAddingProduct = signal(false);
+  protected readonly updatingProductId = signal<string | null>(null);
+  protected readonly removingProductId = signal<string | null>(null);
   private readonly customerDocumentPattern = /^(\d{11}|\d{14}|\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})$/;
 
   ngOnInit(): void {
@@ -204,6 +299,7 @@ export class InvoiceDetailPageComponent implements OnInit {
       return;
     }
 
+    this.loadProductsCatalog();
     this.loadInvoice(id);
   }
 
@@ -364,6 +460,141 @@ export class InvoiceDetailPageComponent implements OnInit {
     return this.productCodesById()[productId] ?? '-';
   }
 
+  protected canManageItems(invoice: Invoice): boolean {
+    return invoice.status !== 2;
+  }
+
+  protected isItemActionDisabled(productId: string): boolean {
+    return this.updatingProductId() === productId || this.removingProductId() === productId || this.isAddingProduct();
+  }
+
+  protected increaseAddQuantity(): void {
+    this.quantityToAdd.update((current) => current + 1);
+  }
+
+  protected decreaseAddQuantity(): void {
+    this.quantityToAdd.update((current) => Math.max(1, current - 1));
+  }
+
+  protected addSelectedProduct(): void {
+    const invoice = this.invoice();
+
+    if (!invoice) {
+      return;
+    }
+
+    if (!this.canManageItems(invoice)) {
+      this.errorMessage.set('Nota fiscal fechada não pode ser alterada.');
+      return;
+    }
+
+    const selectedProductId = this.selectedProductIdToAdd().trim();
+
+    if (!selectedProductId) {
+      this.errorMessage.set('Selecione um produto para adicionar na nota.');
+      return;
+    }
+
+    if (invoice.products.some((item) => item.productId === selectedProductId)) {
+      this.errorMessage.set('Este produto já está na nota fiscal. Use os botões de quantidade para ajustar.');
+      return;
+    }
+
+    const quantity = this.quantityToAdd();
+    if (quantity < 1) {
+      this.errorMessage.set('A quantidade deve ser de no mínimo 1 unidade.');
+      return;
+    }
+
+    this.isAddingProduct.set(true);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    this.invoicesApiService
+      .updateItems(invoice.id, {
+        products: [{ productId: selectedProductId, quantity }]
+      })
+      .pipe(finalize(() => this.isAddingProduct.set(false)))
+      .subscribe({
+        next: (updatedInvoice) => {
+          this.handleInvoiceUpdated(updatedInvoice);
+          this.quantityToAdd.set(1);
+          this.selectedProductIdToAdd.set('');
+          this.successMessage.set('Produto adicionado à nota fiscal com sucesso.');
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(this.getFriendlyErrorMessage(error));
+        }
+      });
+  }
+
+  protected incrementItemQuantity(productId: string): void {
+    const invoice = this.invoice();
+
+    if (!invoice) {
+      return;
+    }
+
+    const currentItem = invoice.products.find((item) => item.productId === productId);
+    if (!currentItem) {
+      this.errorMessage.set('Produto não encontrado na nota fiscal.');
+      return;
+    }
+
+    this.updateProductQuantity(productId, currentItem.quantity + 1);
+  }
+
+  protected decrementItemQuantity(productId: string): void {
+    const invoice = this.invoice();
+
+    if (!invoice) {
+      return;
+    }
+
+    const currentItem = invoice.products.find((item) => item.productId === productId);
+    if (!currentItem) {
+      this.errorMessage.set('Produto não encontrado na nota fiscal.');
+      return;
+    }
+
+    if (currentItem.quantity <= 1) {
+      this.errorMessage.set('A quantidade mínima é 1. Use o botão Excluir para remover o item.');
+      return;
+    }
+
+    this.updateProductQuantity(productId, currentItem.quantity - 1);
+  }
+
+  protected removeProduct(productId: string): void {
+    const invoice = this.invoice();
+
+    if (!invoice) {
+      return;
+    }
+
+    if (!this.canManageItems(invoice)) {
+      this.errorMessage.set('Nota fiscal fechada não pode ser alterada.');
+      return;
+    }
+
+    this.removingProductId.set(productId);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    this.invoicesApiService
+      .removeProduct(invoice.id, productId)
+      .pipe(finalize(() => this.removingProductId.set(null)))
+      .subscribe({
+        next: () => {
+          this.loadInvoice(invoice.id);
+          this.successMessage.set('Produto removido da nota fiscal com sucesso.');
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(this.getFriendlyErrorMessage(error));
+        }
+      });
+  }
+
   private loadInvoice(id: string): void {
     this.isLoading.set(true);
     this.errorMessage.set(null);
@@ -431,6 +662,64 @@ export class InvoiceDetailPageComponent implements OnInit {
         this.productCodesById.set(fallbackCodesLookup);
       }
     });
+  }
+
+  private loadProductsCatalog(): void {
+    this.isLoadingProductsCatalog.set(true);
+
+    this.productsApiService
+      .list(1, 250)
+      .pipe(finalize(() => this.isLoadingProductsCatalog.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.productsCatalog.set(response.items);
+        },
+        error: () => {
+          this.productsCatalog.set([]);
+        }
+      });
+  }
+
+  private updateProductQuantity(productId: string, quantity: number): void {
+    const invoice = this.invoice();
+
+    if (!invoice) {
+      return;
+    }
+
+    if (!this.canManageItems(invoice)) {
+      this.errorMessage.set('Nota fiscal fechada não pode ser alterada.');
+      return;
+    }
+
+    if (quantity < 1) {
+      this.errorMessage.set('A quantidade deve ser de no mínimo 1 unidade.');
+      return;
+    }
+
+    this.updatingProductId.set(productId);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    this.invoicesApiService
+      .updateItems(invoice.id, {
+        products: [{ productId, quantity }]
+      })
+      .pipe(finalize(() => this.updatingProductId.set(null)))
+      .subscribe({
+        next: (updatedInvoice) => {
+          this.handleInvoiceUpdated(updatedInvoice);
+          this.successMessage.set('Quantidade do produto atualizada com sucesso.');
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(this.getFriendlyErrorMessage(error));
+        }
+      });
+  }
+
+  private handleInvoiceUpdated(updatedInvoice: Invoice): void {
+    this.invoice.set(updatedInvoice);
+    this.loadProductNames(updatedInvoice);
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
