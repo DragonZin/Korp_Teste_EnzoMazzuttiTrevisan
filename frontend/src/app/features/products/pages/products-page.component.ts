@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { finalize, Subscription } from 'rxjs';
+import { finalize } from 'rxjs';
 
-import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
-import { PagedResponse } from '../../../core/models/paged-response.model';
-import { ProblemDetails } from '../../../core/models/problem-details.model';
-import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
+import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
+import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
+import { ProblemDetails } from '../../../core/models/problem-details.model';
+import { PaginatedListStore } from '../../../core/state/paginated-list.store';
 import { ProductFormComponent } from '../components/product-form.component';
 import { ProductsTableComponent } from '../components/products-table.component';
 import { ProductsApiService } from '../data/products-api.service';
@@ -27,23 +27,28 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
 })
 export class ProductsPageComponent implements OnInit, OnDestroy {
   private readonly productsApiService = inject(ProductsApiService);
-  private loadProductsSubscription: Subscription | null = null;
+  private readonly paginatedProducts = new PaginatedListStore<Product>({
+    initialPageSize: DEFAULT_PAGE_SIZE_OPTIONS[0],
+    loader: ({ page, pageSize }) => this.productsApiService.list(page, pageSize),
+    mapError: (error) => this.getFriendlyErrorMessage(error),
+  });
+
   readonly skeletonRows = Array.from({ length: 5 }, (_, index) => index);
-  readonly products = signal<Product[]>([]);
-  readonly isLoading = signal(false);
+  readonly products = this.paginatedProducts.items;
+  readonly isLoading = this.paginatedProducts.loading;
+  readonly errorMessage = this.paginatedProducts.error;
+  readonly page = this.paginatedProducts.page;
+  readonly pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
+  readonly pageSize = this.paginatedProducts.pageSize;
+  readonly totalItems = this.paginatedProducts.totalItems;
+  readonly totalPages = this.paginatedProducts.totalPages;
   readonly isSaving = signal(false);
   readonly isDeletingId = signal<string | null>(null);
-  readonly errorMessage = signal<string | null>(null);
   readonly formApiErrorMessage = signal<string | null>(null);
   readonly formApiFieldErrors = signal<Partial<Record<keyof CreateProductRequest, string>>>({});
   readonly isDrawerOpen = signal(false);
   readonly drawerMode = signal<ProductFormMode>('create');
   readonly selectedProduct = signal<Product | null>(null);
-  readonly page = signal(1);
-  readonly pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
-  readonly pageSize = signal<number>(this.pageSizeOptions[0]);
-  readonly totalItems = signal(0);
-  readonly totalPages = signal(0);
 
   readonly isInitialLoading = computed(() => this.isLoading() && this.products().length === 0);
   readonly totalStock = computed(() => this.products().reduce((acc, product) => acc + product.stock, 0));
@@ -54,7 +59,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.loadProductsSubscription?.unsubscribe();
+    this.paginatedProducts.destroy();
   }
 
   openCreateDrawer(): void {
@@ -84,35 +89,27 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   }
 
   loadProducts(): void {
-    this.loadProductsBy(this.page(), this.pageSize());
+    this.paginatedProducts.load();
   }
 
   goToPreviousPage(): void {
-    if (!this.canGoToPreviousPage()) {
-      return;
-    }
-
-    this.loadProductsBy(this.page() - 1, this.pageSize());
+    this.paginatedProducts.previousPage();
   }
 
   goToNextPage(): void {
-    if (!this.canGoToNextPage()) {
-      return;
-    }
-
-    this.loadProductsBy(this.page() + 1, this.pageSize());
+    this.paginatedProducts.nextPage();
   }
 
   canGoToPreviousPage(): boolean {
-    return !this.isLoading() && this.page() > 1;
+    return this.paginatedProducts.canGoPrevious();
   }
 
   canGoToNextPage(): boolean {
-    return !this.isLoading() && this.page() < this.totalPages();
+    return this.paginatedProducts.canGoNext();
   }
 
   onPageSizeChange(nextPageSize: number): void {
-    this.loadProductsBy(1, nextPageSize);
+    this.paginatedProducts.setPageSize(nextPageSize);
   }
 
   trackByProductId(_: number, product: Product): string {
@@ -135,31 +132,6 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
 
   availabilityClass(product: Product): string {
     return `availability-badge availability-badge--${this.getAvailabilityTone(product)}`;
-  }
-
-  private loadProductsBy(page: number, pageSize: number): void {
-    this.loadProductsSubscription?.unsubscribe();
-    this.isLoading.set(true);
-    this.errorMessage.set(null);
-
-    this.loadProductsSubscription = this.productsApiService
-      .list(page, pageSize)
-      .pipe(finalize(() => this.isLoading.set(false)))
-      .subscribe({
-        next: (response: PagedResponse<Product>) => {
-          this.products.set(response.items);
-          this.page.set(response.page);
-          this.pageSize.set(response.pageSize);
-          this.totalItems.set(response.totalItems);
-          this.totalPages.set(response.totalPages);
-        },
-        error: (error: HttpErrorResponse) => {
-          this.products.set([]);
-          this.totalItems.set(0);
-          this.totalPages.set(0);
-          this.errorMessage.set(this.getFriendlyErrorMessage(error));
-        },
-      });
   }
 
   submitForm(payload: CreateProductRequest | UpdateProductRequest): void {
@@ -218,7 +190,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
           const projectedTotalPages = projectedTotalItems === 0 ? 0 : Math.ceil(projectedTotalItems / this.pageSize());
           const nextPage = projectedTotalPages > 0 ? Math.min(this.page(), projectedTotalPages) : 1;
 
-          this.loadProductsBy(nextPage, this.pageSize());
+          this.paginatedProducts.load({ page: nextPage });
         },
         error: (error: HttpErrorResponse) => {
           window.alert(this.getFriendlyErrorMessage(error));

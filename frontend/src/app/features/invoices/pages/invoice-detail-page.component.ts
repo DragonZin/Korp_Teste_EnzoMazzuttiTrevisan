@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -15,6 +15,7 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.component';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
+import { PaginatedListStore } from '../../../core/state/paginated-list.store';
 import { ProductsTableComponent } from '../../products/components/products-table.component';
 
 @Component({
@@ -24,13 +25,17 @@ import { ProductsTableComponent } from '../../products/components/products-table
   templateUrl: './invoice-detail-page.component.html',
   styleUrl: './invoice-detail-page.component.scss',
 })
-export class InvoiceDetailPageComponent implements OnInit {
+export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
   private readonly invoiceItemsFacade = inject(InvoiceItemsFacade);
   private readonly productsApiService = inject(ProductsApiService);
   private readonly invoiceProductLookupService = inject(InvoiceProductLookupService);
+  private readonly productsCatalogList = new PaginatedListStore<Product>({
+    initialPageSize: DEFAULT_PAGE_SIZE_OPTIONS[0],
+    loader: ({ page, pageSize }) => this.productsApiService.list(page, pageSize),
+  });
   
   protected readonly invoiceId = signal('');
   protected readonly invoice = signal<Invoice | null>(null);
@@ -47,16 +52,16 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly editedCustomerDocument = signal('');
   protected readonly isUpdatingCustomerDocument = signal(false);
   protected readonly isClosingInvoice = signal(false);
-  protected readonly productsCatalog = signal<Product[]>([]);
-  protected readonly isLoadingProductsCatalog = signal(false);
+  protected readonly productsCatalog = this.productsCatalogList.items;
+  protected readonly isLoadingProductsCatalog = this.productsCatalogList.loading;
   protected readonly selectedProductIdsToAdd = signal<string[]>([]);
   protected readonly selectedProductQuantitiesToAdd = signal<Record<string, number>>({});
   protected readonly isAddProductModalOpen = signal(false);
-  protected readonly catalogPage = signal(1);
+  protected readonly catalogPage = this.productsCatalogList.page;
   protected readonly catalogPageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
-  protected readonly catalogPageSize = signal(this.catalogPageSizeOptions[0]);
-  protected readonly catalogTotalItems = signal(0);
-  protected readonly catalogTotalPages = signal(0);
+  protected readonly catalogPageSize = this.productsCatalogList.pageSize;
+  protected readonly catalogTotalItems = this.productsCatalogList.totalItems;
+  protected readonly catalogTotalPages = this.productsCatalogList.totalPages;
   protected readonly catalogSearchTerm = signal('');
   protected readonly editableItemQuantities = signal<Partial<Record<string, number>>>({});
   protected readonly isAddingProduct = signal(false);
@@ -75,6 +80,10 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     this.loadInvoice(id);
+  }
+
+  ngOnDestroy(): void {
+    this.productsCatalogList.destroy();
   }
 
   protected goBack(): void {
@@ -318,28 +327,15 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   protected goToPreviousCatalogPage(): void {
-    if (this.isLoadingProductsCatalog() || this.catalogPage() <= 1) {
-      return;
-    }
-
-    this.loadProductsCatalog(this.catalogPage() - 1, this.catalogPageSize());
+    this.productsCatalogList.previousPage();
   }
 
   protected goToNextCatalogPage(): void {
-    if (this.isLoadingProductsCatalog() || this.catalogPage() >= this.catalogTotalPages()) {
-      return;
-    }
-
-    this.loadProductsCatalog(this.catalogPage() + 1, this.catalogPageSize());
+    this.productsCatalogList.nextPage();
   }
 
   protected onCatalogPageSizeChange(pageSize: number): void {
-    if (!Number.isInteger(pageSize) || pageSize < 1) {
-      return;
-    }
-
-    this.catalogPageSize.set(pageSize);
-    this.loadProductsCatalog(1, pageSize);
+    this.productsCatalogList.setPageSize(pageSize);
   }
 
   protected addSelectedProduct(): void {
@@ -489,25 +485,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   }
 
   private loadProductsCatalog(page = this.catalogPage(), pageSize = this.catalogPageSize()): void {
-    this.isLoadingProductsCatalog.set(true);
-
-    this.productsApiService
-      .list(page, pageSize)
-      .pipe(finalize(() => this.isLoadingProductsCatalog.set(false)))
-      .subscribe({
-        next: (response) => {
-          this.productsCatalog.set(response.items);
-          this.catalogPage.set(response.page);
-          this.catalogPageSize.set(response.pageSize);
-          this.catalogTotalItems.set(response.totalItems);
-          this.catalogTotalPages.set(response.totalPages);
-        },
-        error: () => {
-          this.productsCatalog.set([]);
-          this.catalogTotalItems.set(0);
-          this.catalogTotalPages.set(0);
-        }
-      });
+    this.productsCatalogList.load({ page, pageSize });
   }
 
   private handleInvoiceUpdated(updatedInvoice: Invoice): void {

@@ -1,14 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
+import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
 import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
-import { PagedResponse } from '../../../core/models/paged-response.model';
-import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
-import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
+import { PaginatedListStore } from '../../../core/state/paginated-list.store';
 import { InvoiceFormComponent } from '../components/invoice-form.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
@@ -23,18 +23,27 @@ import { toInvoiceStatusClass, toInvoiceStatusLabel } from '../utils/invoice-sta
   templateUrl: './invoices-page.component.html',
   styleUrl: './invoices-page.component.scss',
 })
-export class InvoicesPageComponent implements OnInit {
+export class InvoicesPageComponent implements OnInit, OnDestroy {
   private readonly invoicesApiService = inject(InvoicesApiService);
   private readonly router = inject(Router);
+  private readonly paginatedInvoices = new PaginatedListStore<Invoice>({
+    initialPageSize: DEFAULT_PAGE_SIZE_OPTIONS[0],
+    loader: ({ page, pageSize }) => this.invoicesApiService.list({
+      page,
+      pageSize,
+      status: this.selectedStatus() ? Number(this.selectedStatus()) as 1 | 2 : undefined
+    }),
+    mapError: (error) => this.getFriendlyErrorMessage(error),
+  });
 
-  readonly invoices = signal<Invoice[]>([]);
-  readonly isLoading = signal(false);
-  readonly errorMessage = signal<string | null>(null);
-  readonly page = signal(1);
+  readonly invoices = this.paginatedInvoices.items;
+  readonly isLoading = this.paginatedInvoices.loading;
+  readonly errorMessage = this.paginatedInvoices.error;
+  readonly page = this.paginatedInvoices.page;
   readonly pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
-  readonly pageSize = signal(this.pageSizeOptions[0]);
-  readonly totalItems = signal(0);
-  readonly totalPages = signal(0);
+  readonly pageSize = this.paginatedInvoices.pageSize;
+  readonly totalItems = this.paginatedInvoices.totalItems;
+  readonly totalPages = this.paginatedInvoices.totalPages;
   readonly selectedStatus = signal<'1' | '2' | ''>('');
   readonly deletingInvoiceId = signal<string | null>(null);
   readonly closingInvoiceId = signal<string | null>(null);
@@ -49,37 +58,18 @@ export class InvoicesPageComponent implements OnInit {
   protected readonly toInvoiceStatusLabel = toInvoiceStatusLabel;
   protected readonly toInvoiceStatusClass = toInvoiceStatusClass;
   protected readonly getRelevantInvoiceDate = getRelevantInvoiceDate;
+
   ngOnInit(): void {
     this.loadInvoices();
   }
 
+  ngOnDestroy(): void {
+    this.paginatedInvoices.destroy();
+  }
+
   loadInvoices(page = this.page()): void {
-    this.isLoading.set(true);
-    this.errorMessage.set(null);
     this.successMessage.set(null);
-    
-    this.invoicesApiService
-      .list({
-        page,
-        pageSize: this.pageSize(),
-        status: this.selectedStatus() ? Number(this.selectedStatus()) as 1 | 2 : undefined
-      })
-      .pipe(finalize(() => this.isLoading.set(false)))
-      .subscribe({
-        next: (response: PagedResponse<Invoice>) => {
-          this.invoices.set(response.items);
-          this.page.set(response.page);
-          this.pageSize.set(response.pageSize);
-          this.totalItems.set(response.totalItems);
-          this.totalPages.set(response.totalPages);
-        },
-        error: (error: HttpErrorResponse) => {
-          this.invoices.set([]);
-          this.totalItems.set(0);
-          this.totalPages.set(0);
-          this.errorMessage.set(this.getFriendlyErrorMessage(error));
-        }
-      });
+    this.paginatedInvoices.load({ page });
   }
 
   onStatusChange(event: Event): void {
@@ -89,24 +79,15 @@ export class InvoicesPageComponent implements OnInit {
   }
 
   onPageSizeChange(nextPageSize: number): void {
-    this.pageSize.set(nextPageSize);
-    this.loadInvoices(1);
+    this.paginatedInvoices.setPageSize(nextPageSize);
   }
 
   previousPage(): void {
-    if (this.page() <= 1) {
-      return;
-    }
-
-    this.loadInvoices(this.page() - 1);
+    this.paginatedInvoices.previousPage();
   }
 
   nextPage(): void {
-    if (this.page() >= this.totalPages()) {
-      return;
-    }
-
-    this.loadInvoices(this.page() + 1);
+    this.paginatedInvoices.nextPage();
   }
 
   openCreateModal(): void {
@@ -118,7 +99,7 @@ export class InvoicesPageComponent implements OnInit {
     if (this.isCreatingInvoice()) {
       return;
     }
-    
+
     this.isCreateModalOpen.set(false);
     this.clearCreateErrors();
     this.createFieldErrors.set({});
@@ -152,7 +133,7 @@ export class InvoicesPageComponent implements OnInit {
             Object.keys(mappedFieldErrors).length > 0
               ? 'Existem campos inválidos. Revise os dados e tente novamente.'
               : this.getFriendlyCreateErrorMessage(error)
-            );
+          );
         }
       });
   }
@@ -163,7 +144,7 @@ export class InvoicesPageComponent implements OnInit {
       return;
     }
 
-    this.errorMessage.set(null);
+    this.paginatedInvoices.clearError();
     this.successMessage.set(null);
     this.deletingInvoiceId.set(invoice.id);
 
@@ -176,7 +157,7 @@ export class InvoicesPageComponent implements OnInit {
           this.loadInvoices(this.page());
         },
         error: (error: HttpErrorResponse) => {
-          this.errorMessage.set(`Não foi possível excluir a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
+          this.paginatedInvoices.error.set(`Não foi possível excluir a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
         }
       });
   }
@@ -186,7 +167,7 @@ export class InvoicesPageComponent implements OnInit {
       return;
     }
 
-    this.errorMessage.set(null);
+    this.paginatedInvoices.clearError();
     this.successMessage.set(null);
     this.closingInvoiceId.set(invoice.id);
 
@@ -199,7 +180,7 @@ export class InvoicesPageComponent implements OnInit {
           this.loadInvoices(this.page());
         },
         error: (error: HttpErrorResponse) => {
-          this.errorMessage.set(`Não foi possível fechar a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
+          this.paginatedInvoices.error.set(`Não foi possível fechar a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
         }
       });
   }
@@ -211,7 +192,7 @@ export class InvoicesPageComponent implements OnInit {
   printInvoice(invoice: Invoice): void {
     void this.router.navigate(['/invoices', invoice.id, 'print']);
   }
-  
+
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
     return mapHttpErrorMessage(error, { domain: 'invoices' });
   }
