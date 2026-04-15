@@ -2,6 +2,10 @@
     display: none;
 }
 
+.editable-field-wrap .form-control[readonly] {
+    background-color: var(--bs-body-bg);
+}
+
 @media print {
     .no-print {
     display: none !important;

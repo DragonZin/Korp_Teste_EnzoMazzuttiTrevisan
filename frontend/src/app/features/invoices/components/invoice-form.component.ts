@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, input, output } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 
@@ -58,6 +58,18 @@ import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 export class InvoiceFormComponent {
   private readonly fb = new FormBuilder();
   private readonly customerDocumentPattern = /^(\d{11}|\d{14}|\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})$/;
+
+  private readonly trimRequiredValidator: ValidatorFn = (control: AbstractControl<string>) =>
+    control.value.trim().length > 0 ? null : { trimRequired: true };
+  private readonly documentValidator: ValidatorFn = (control: AbstractControl<string>) => {
+    const value = control.value.trim();
+
+    if (value.length === 0) {
+      return null;
+    }
+
+    return this.customerDocumentPattern.test(value) ? null : { documentFormat: true };
+  };
 
   readonly isSubmitting = input(false);
   readonly apiErrorMessage = input<string | null>(null);
@@ -131,19 +143,5 @@ export class InvoiceFormComponent {
     };
 
     this.submitted.emit(payload);
-  }
-
-  private trimRequiredValidator(control: AbstractControl<string>): ValidationErrors | null {
-    return control.value.trim().length > 0 ? null : { trimRequired: true };
-  }
-
-  private documentValidator(control: AbstractControl<string>): ValidationErrors | null {
-    const value = control.value.trim();
-
-    if (value.length === 0) {
-      return null;
-    }
-
-    return this.customerDocumentPattern.test(value) ? null : { documentFormat: true };
   }
 }
