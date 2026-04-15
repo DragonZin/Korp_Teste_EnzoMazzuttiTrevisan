@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -15,8 +15,22 @@ export class InvoicesApiService {
   private readonly http = inject(HttpClient);
   private readonly invoicesUrl = `${API_CONFIG.baseUrl}/invoices`;
 
-  list(): Observable<PagedResponse<Invoice>> {
-    return this.http.get<PagedResponse<Invoice>>(this.invoicesUrl);
+  list(params?: { page?: number; pageSize?: number; status?: 1 | 2 }): Observable<PagedResponse<Invoice>> {
+    let httpParams = new HttpParams();
+
+    if (params?.page) {
+      httpParams = httpParams.set('page', params.page.toString());
+    }
+
+    if (params?.pageSize) {
+      httpParams = httpParams.set('pageSize', params.pageSize.toString());
+    }
+
+    if (params?.status) {
+      httpParams = httpParams.set('status', params.status.toString());
+    }
+
+    return this.http.get<PagedResponse<Invoice>>(this.invoicesUrl, { params: httpParams });
   }
 
   getById(id: string): Observable<Invoice> {
