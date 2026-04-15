@@ -273,8 +273,7 @@ export class InvoicesPageComponent implements OnInit {
   }
 
   openCreateModal(): void {
-    this.createApiError.set(null);
-    this.createFieldErrors.set({});
+    this.clearCreateErrors();
     this.isCreateModalOpen.set(true);
   }
 
@@ -283,8 +282,7 @@ export class InvoicesPageComponent implements OnInit {
       return;
     }
 
-    this.isCreateModalOpen.set(false);
-    this.createApiError.set(null);
+    this.clearCreateErrors();
     this.createFieldErrors.set({});
   }
 
@@ -293,8 +291,7 @@ export class InvoicesPageComponent implements OnInit {
       return;
     }
 
-    this.createApiError.set(null);
-    this.createFieldErrors.set({});
+    this.clearCreateErrors();
 
     this.isCreatingInvoice.set(true);
 
@@ -303,7 +300,8 @@ export class InvoicesPageComponent implements OnInit {
       .pipe(finalize(() => this.isCreatingInvoice.set(false)))
       .subscribe({
         next: () => {
-          this.closeCreateModal();
+          this.isCreateModalOpen.set(false);
+          this.clearCreateErrors();
           this.successMessage.set('Nota fiscal criada com sucesso.');
           this.loadInvoices(1);
         },
@@ -315,8 +313,8 @@ export class InvoicesPageComponent implements OnInit {
           this.createApiError.set(
             Object.keys(mappedFieldErrors).length > 0
               ? 'Existem campos inválidos. Revise os dados e tente novamente.'
-              : this.getFriendlyErrorMessage(error)
-          );
+              : this.getFriendlyCreateErrorMessage(error)
+            );
         }
       });
   }
@@ -390,7 +388,7 @@ export class InvoicesPageComponent implements OnInit {
       queryParams: { autoPrint: '1' }
     });
   }
-
+  
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0) {
       return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
@@ -401,6 +399,23 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     return 'Não foi possível carregar as notas fiscais no momento. Tente novamente em instantes.';
+  }
+
+  private getFriendlyCreateErrorMessage(error: HttpErrorResponse): string {
+    if (error.status === 0) {
+      return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
+    }
+
+    if (typeof error.error?.detail === 'string' && error.error.detail.trim().length > 0) {
+      return error.error.detail;
+    }
+
+    return 'Não foi possível criar a nota fiscal no momento. Tente novamente em instantes.';
+  }
+
+  private clearCreateErrors(): void {
+    this.createApiError.set(null);
+    this.createFieldErrors.set({});
   }
 
   private mapCreateFieldErrors(
