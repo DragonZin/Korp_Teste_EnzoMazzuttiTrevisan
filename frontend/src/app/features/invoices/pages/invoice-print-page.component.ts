@@ -101,6 +101,7 @@ import { Invoice } from '../models/invoice.model';
               <table class="table table-sm align-middle">
                 <thead>
                   <tr>
+                    <th>Código</th>
                     <th>Produto</th>
                     <th class="text-end">Preço unitário</th>
                     <th class="text-end">Quantidade</th>
@@ -109,6 +110,7 @@ import { Invoice } from '../models/invoice.model';
                 </thead>
                 <tbody>
                   <tr *ngFor="let product of invoice.products">
+                    <td>{{ getProductCode(product.productId) }}</td>
                     <td>{{ getProductDisplayName(product.productId) }}</td>
                     <td class="text-end">{{ product.unitPrice | currency: 'BRL' }}</td>
                     <td class="text-end">{{ product.quantity }}</td>
@@ -116,7 +118,7 @@ import { Invoice } from '../models/invoice.model';
                   </tr>
 
                   <tr *ngIf="invoice.products.length === 0">
-                    <td colspan="4" class="text-center text-body-secondary py-3">
+                    <td colspan="5" class="text-center text-body-secondary py-3">
                       Esta nota não possui produtos cadastrados.
                     </td>
                   </tr>
@@ -142,6 +144,7 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
   protected readonly productNamesById = signal<Record<string, string>>({});
+  protected readonly productCodesById = signal<Record<string, string>>({});
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -164,6 +167,10 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
 
   protected getProductDisplayName(productId: string): string {
     return this.productNamesById()[productId] ?? productId;
+  }
+  
+  protected getProductCode(productId: string): string {
+    return this.productCodesById()[productId] ?? '-';
   }
 
   protected goBack(): void {
@@ -215,6 +222,7 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
         error: (error: HttpErrorResponse) => {
           this.invoice.set(null);
           this.productNamesById.set({});
+          this.productCodesById.set({});
           this.errorMessage.set(this.getFriendlyErrorMessage(error));
         }
       });
@@ -225,6 +233,7 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
 
     if (uniqueProductIds.length === 0) {
       this.productNamesById.set({});
+      this.productCodesById.set({});
       return;
     }
 
@@ -234,20 +243,31 @@ export class InvoicePrintPageComponent implements OnInit, OnDestroy {
           accumulator[productId] = productId;
           return accumulator;
         }, {});
-
-        products.forEach((product) => {
-          namesLookup[product.id] = product.name;
-        });
-
-        this.productNamesById.set(namesLookup);
-      },
-      error: () => {
-        const fallbackLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
-          accumulator[productId] = productId;
+        const codesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
+          accumulator[productId] = '-';
           return accumulator;
         }, {});
 
-        this.productNamesById.set(fallbackLookup);
+        products.forEach((product) => {
+          namesLookup[product.id] = product.name;
+          codesLookup[product.id] = product.code;
+        });
+
+        this.productNamesById.set(namesLookup);
+        this.productCodesById.set(codesLookup);
+      },
+      error: () => {
+        const fallbackNamesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
+          accumulator[productId] = productId;
+          return accumulator;
+        }, {});
+        const fallbackCodesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
+          accumulator[productId] = '-';
+          return accumulator;
+        }, {});
+
+        this.productNamesById.set(fallbackNamesLookup);
+        this.productCodesById.set(fallbackCodesLookup);
       }
     });
   }

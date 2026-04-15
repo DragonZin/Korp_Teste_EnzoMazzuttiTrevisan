@@ -25,11 +25,11 @@ import { Invoice } from '../models/invoice.model';
             <p class="text-body-secondary mb-0">Listagem de notas.</p>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-primary" (click)="openCreateModal()" [disabled]="isLoading()">
-              Nova nota
-            </button>
             <button type="button" class="btn btn-outline-secondary" (click)="loadInvoices(page())" [disabled]="isLoading()">
               Recarregar
+            </button>
+            <button type="button" class="btn btn-primary" (click)="openCreateModal()" [disabled]="isLoading()">
+              Nova nota
             </button>
           </div>
         </div>
