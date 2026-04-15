@@ -30,9 +30,10 @@ public class InvoiceProductService : IInvoiceProductService
         _logger = logger;
     }
 
-    public async Task<InvoiceResponse> UpsertInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request)
+    public async Task<InvoiceResponse> UpsertInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request, string operationId)
     {
         ValidateManageItemsRequest(request);
+        ValidateOperationId(operationId);
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -47,17 +48,21 @@ public class InvoiceProductService : IInvoiceProductService
             .Where(p => p.InvoiceId == invoiceId)
             .ToListAsync();
 
+        var requestProducts = request.Products.ToList();
+
         var existingItemsByProductId = existingItems.ToDictionary(p => p.ProductId);
-        var requestByProductId = request.Products.ToDictionary(p => p.ProductId);
+        var requestByProductId = requestProducts.ToDictionary(p => p.ProductId);
 
         var productsById = await GetProductsByIdsAsync(requestByProductId.Keys.ToList());
 
-       var appliedReservationAdjustments = new List<(Guid ProductId, int ReservedStockDelta)>();
+        var appliedReservationAdjustments = new List<(Guid ProductId, int ReservedStockDelta)>();
 
         try
         {
-            foreach (var itemRequest in request.Products)
+            for (var operationSequence = 0; operationSequence < requestProducts.Count; operationSequence++)
             {
+                var itemRequest = requestProducts[operationSequence];
+
                 if (!productsById.TryGetValue(itemRequest.ProductId, out var product))
                 {
                     throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
@@ -78,7 +83,12 @@ public class InvoiceProductService : IInvoiceProductService
                     await AdjustProductReservationAsync(
                         itemRequest.ProductId,
                         quantityDelta,
-                        BuildReservationAdjustmentIdempotencyKey(invoiceId, itemRequest.ProductId, quantityDelta));
+                        BuildReservationAdjustmentIdempotencyKey(
+                            operationId,
+                            invoiceId,
+                            itemRequest.ProductId,
+                            quantityDelta,
+                            operationSequence));
                     appliedReservationAdjustments.Add((itemRequest.ProductId, quantityDelta));
                 }
 
@@ -109,7 +119,10 @@ public class InvoiceProductService : IInvoiceProductService
         }
         catch
         {
-            var compensationFailures = await CompensateReservationAdjustmentsAsync(invoiceId, appliedReservationAdjustments);
+            var compensationFailures = await CompensateReservationAdjustmentsAsync(
+                invoiceId,
+                operationId,
+                appliedReservationAdjustments);
 
             if (compensationFailures.Count > 0)
             {
@@ -130,6 +143,8 @@ public class InvoiceProductService : IInvoiceProductService
         {
             throw new ValidationException("ProductId é obrigatório.");
         }
+
+        var operationId = Guid.NewGuid().ToString("N");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -156,7 +171,12 @@ public class InvoiceProductService : IInvoiceProductService
                 await AdjustProductReservationAsync(
                     productId,
                     -itemToRemove.Quantity,
-                    BuildReservationAdjustmentIdempotencyKey(invoiceId, productId, -itemToRemove.Quantity));
+                    BuildReservationAdjustmentIdempotencyKey(
+                        operationId,
+                        invoiceId,
+                        productId,
+                        -itemToRemove.Quantity,
+                        operationSequence: 0));
                 appliedReservationAdjustments.Add((productId, -itemToRemove.Quantity));
             }
 
@@ -170,7 +190,10 @@ public class InvoiceProductService : IInvoiceProductService
         }
         catch
         {
-            var compensationFailures = await CompensateReservationAdjustmentsAsync(invoiceId, appliedReservationAdjustments);
+            var compensationFailures = await CompensateReservationAdjustmentsAsync(
+                invoiceId,
+                operationId,
+                appliedReservationAdjustments);
 
             if (compensationFailures.Count > 0)
             {
@@ -217,6 +240,7 @@ public class InvoiceProductService : IInvoiceProductService
 
     private async Task<List<(Guid ProductId, int ReservedStockDelta)>> CompensateReservationAdjustmentsAsync(
         Guid invoiceId,
+        string operationId,
         List<(Guid ProductId, int ReservedStockDelta)> appliedAdjustments)
     {
         var failedCompensations = new List<(Guid ProductId, int ReservedStockDelta)>();
@@ -232,6 +256,8 @@ public class InvoiceProductService : IInvoiceProductService
                     appliedAdjustment.ProductId,
                     reservedStockDelta: compensationReservedDelta,
                     idempotencyKey: BuildReservationCompensationIdempotencyKey(
+                        operationId,
+                        invoiceId,
                         appliedAdjustment.ProductId,
                         compensationReservedDelta,
                         i));
@@ -252,12 +278,21 @@ public class InvoiceProductService : IInvoiceProductService
         return failedCompensations;
     }
 
-    private static string BuildReservationAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int reservedStockDelta)
-        => $"invoice-items:{invoiceId}:product:{productId}:reserved:{reservedStockDelta}";
+    private static string BuildReservationAdjustmentIdempotencyKey(
+        string operationId,
+        Guid invoiceId,
+        Guid productId,
+        int reservedStockDelta,
+        int operationSequence)
+        => $"invoice-items:op:{operationId}:invoice:{invoiceId}:product:{productId}:reserved:{reservedStockDelta}:seq:{operationSequence}";
 
-    private static string BuildReservationCompensationIdempotencyKey(Guid productId, int reservedStockDelta, int index)
-        => $"invoice-items-compensation:product:{productId}:reserved:{reservedStockDelta}:idx:{index}";
-
+    private static string BuildReservationCompensationIdempotencyKey(
+        string operationId,
+        Guid invoiceId,
+        Guid productId,
+        int reservedStockDelta,
+        int index)
+        => $"invoice-items-compensation:op:{operationId}:invoice:{invoiceId}:product:{productId}:reserved:{reservedStockDelta}:idx:{index}";
 
     private async Task<Dictionary<Guid, ProductApiResponse>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> productIds)
     {
@@ -316,6 +351,14 @@ public class InvoiceProductService : IInvoiceProductService
         }
     }
 
+    private static void ValidateOperationId(string operationId)
+    {
+        if (string.IsNullOrWhiteSpace(operationId))
+        {
+            throw new ValidationException("OperationId é obrigatório.");
+        }
+    }
+    
     private static void EnsureInvoiceIsOpen(Invoice invoice)
     {
         if (invoice.Status == InvoiceStatus.Closed)

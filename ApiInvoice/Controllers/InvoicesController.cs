@@ -9,6 +9,8 @@ namespace ApiInvoice.Controllers;
 [Route("api/[controller]")]
 public class InvoicesController : ControllerBase
 {
+    private const string IdempotencyHeader = "Idempotency-Key";
+    private const string OperationIdHeader = "X-Operation-Id";
     private readonly IInvoiceService _invoiceService;
     private readonly IInvoiceProductService _invoiceProductService;
 
@@ -52,7 +54,8 @@ public class InvoicesController : ControllerBase
     [HttpPatch("{id:guid}/items")]
     public async Task<ActionResult<InvoiceResponse>> UpsertInvoiceItems(Guid id, [FromBody] ManageInvoiceItemsRequest request)
     {
-        var invoice = await _invoiceProductService.UpsertInvoiceItemsAsync(id, request);
+        var operationId = ResolveOperationId();
+        var invoice = await _invoiceProductService.UpsertInvoiceItemsAsync(id, request, operationId);
         return Ok(invoice);
     }
 
@@ -75,5 +78,22 @@ public class InvoicesController : ControllerBase
     {
         await _invoiceService.DeleteInvoiceAsync(id);
         return NoContent();
+    }
+
+    private string ResolveOperationId()
+    {
+        if (Request.Headers.TryGetValue(OperationIdHeader, out var operationValues)
+            && !string.IsNullOrWhiteSpace(operationValues))
+        {
+            return operationValues.ToString().Trim();
+        }
+
+        if (Request.Headers.TryGetValue(IdempotencyHeader, out var idempotencyValues)
+            && !string.IsNullOrWhiteSpace(idempotencyValues))
+        {
+            return idempotencyValues.ToString().Trim();
+        }
+
+        return Guid.NewGuid().ToString("N");
     }
 }

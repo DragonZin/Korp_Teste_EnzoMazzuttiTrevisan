@@ -43,6 +43,7 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
+                p.ReservedStock,    
                 p.Stock - p.ReservedStock,
                 p.Price,
                 p.IsDeleted))
@@ -67,6 +68,7 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
+                p.ReservedStock,
                 p.Stock - p.ReservedStock,
                 p.Price,
                 p.IsDeleted))
@@ -98,6 +100,7 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
+                p.ReservedStock,
                 p.Stock - p.ReservedStock,
                 p.Price,
                 p.IsDeleted))
@@ -276,6 +279,7 @@ public class ProductService : IProductService
             product.Code,
             product.Name,
             product.Stock,
+            product.ReservedStock,
             product.Stock - product.ReservedStock,
             product.Price,
             product.IsDeleted);
