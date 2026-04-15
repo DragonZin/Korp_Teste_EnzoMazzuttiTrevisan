@@ -13,7 +13,7 @@ Microserviço responsável pela criação, manutenção e fechamento de notas fi
 ## Rotas
 
 ### Healthcheck
-- `GET /health`
+- `GET /api/invoices/health`
 
 ### Listar notas
 - `GET /api/invoices?page=1&pageSize=10&status=`

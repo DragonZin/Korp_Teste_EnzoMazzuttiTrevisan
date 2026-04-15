@@ -13,7 +13,7 @@ Microserviço responsável pelo cadastro e consulta de produtos.
 ## Rotas públicas
 
 ### Healthcheck
-- `GET /health`
+- `GET /api/products/health`
 
 Resposta exemplo:
 ```json

@@ -67,7 +67,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseSharedApiDefaults();
-app.MapSharedHealthCheck<AppDbContext>();
+app.MapSharedHealthCheck<AppDbContext>("/api/invoices/health");
 app.MapControllers();
+
 
 app.Run();

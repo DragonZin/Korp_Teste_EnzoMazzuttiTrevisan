@@ -63,10 +63,17 @@ public static class SharedApiExtensions
         return app;
     }
 
-    public static IEndpointRouteBuilder MapSharedHealthCheck<TDbContext>(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapSharedHealthCheck<TDbContext>(
+        this IEndpointRouteBuilder endpoints,
+        string healthPath)
         where TDbContext : DbContext
     {
-        endpoints.MapGet("/health", HealthCheckHandler<TDbContext>);
+        if (string.IsNullOrWhiteSpace(healthPath))
+        {
+            throw new ArgumentException("O caminho do healthcheck é obrigatório.", nameof(healthPath));
+        }
+
+        endpoints.MapGet(healthPath, HealthCheckHandler<TDbContext>);
 
         return endpoints;
     }
