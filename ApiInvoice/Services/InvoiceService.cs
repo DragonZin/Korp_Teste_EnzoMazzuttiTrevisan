@@ -144,6 +144,11 @@ public class InvoiceService : IInvoiceService
                     throw new NotFoundException($"Produto {productEntry.Key} não encontrado.");
                 }
 
+                if (product.IsDeleted)
+                {
+                    throw new ValidationException("Produto excluído não pode ser movimentado.");
+                }
+
                 if (product.ReservedStock < productEntry.Value || product.Stock + (-productEntry.Value) < 0)
                 {
                     throw new ValidationException($"reserva/estoque insuficiente para o produto {productEntry.Key}.");
@@ -365,6 +370,7 @@ public class InvoiceService : IInvoiceService
         Guid Id,
         int Stock,
         int ReservedStock,
+        bool IsDeleted,
         [property: JsonPropertyName("AvailableStock")] int? AvailableStock = null,
         [property: JsonPropertyName("AvailableQuantity")] int? AvailableQuantity = null
     )

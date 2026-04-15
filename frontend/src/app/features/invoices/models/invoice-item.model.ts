@@ -4,4 +4,5 @@ export interface InvoiceItem {
   unitPrice: number;
   quantity: number;
   totalPrice: number;
+  isDeleted?: boolean | null;
 }

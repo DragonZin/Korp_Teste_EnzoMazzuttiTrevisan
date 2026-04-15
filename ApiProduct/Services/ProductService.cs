@@ -23,8 +23,7 @@ public class ProductService : IProductService
         var normalizedPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         var query = _context.Products
-            .AsNoTracking()
-            .Where(p => !p.IsDeleted);
+            .AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -45,7 +44,8 @@ public class ProductService : IProductService
                 p.Name,
                 p.Stock,
                 p.Stock - p.ReservedStock,
-                p.Price))
+                p.Price,
+                p.IsDeleted))
             .ToListAsync();
 
         return new PagedResponse<ProductResponse>(
@@ -68,7 +68,8 @@ public class ProductService : IProductService
                 p.Name,
                 p.Stock,
                 p.Stock - p.ReservedStock,
-                p.Price))
+                p.Price,
+                p.IsDeleted))
             .FirstOrDefaultAsync();
 
         return product ?? throw new NotFoundException("Produto não encontrado.");
@@ -98,7 +99,8 @@ public class ProductService : IProductService
                 p.Name,
                 p.Stock,
                 p.Stock - p.ReservedStock,
-                p.Price))
+                p.Price,
+                p.IsDeleted))
             .ToListAsync();
     }
 
@@ -186,8 +188,10 @@ public class ProductService : IProductService
         ValidateRequestBody(request);
 
         var product = await _context.Products
-            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            .FirstOrDefaultAsync(p => p.Id == id)
             ?? throw new NotFoundException("Produto não encontrado.");
+
+        EnsureProductIsNotDeletedForStockOperation(product);
 
         product.Stock += request.StockDelta;
         product.ReservedStock += request.ReservedStockDelta;
@@ -204,8 +208,10 @@ public class ProductService : IProductService
         ValidatePositiveQuantity(request.Quantity);
 
         var product = await _context.Products
-            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            .FirstOrDefaultAsync(p => p.Id == id)
             ?? throw new NotFoundException("Produto não encontrado.");
+
+        EnsureProductIsNotDeletedForStockOperation(product);
 
         EnsureAvailableStock(product, request.Quantity);
         product.ReservedStock += request.Quantity;
@@ -221,9 +227,10 @@ public class ProductService : IProductService
         ValidatePositiveQuantity(request.Quantity);
 
         var product = await _context.Products
-            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            .FirstOrDefaultAsync(p => p.Id == id)
             ?? throw new NotFoundException("Produto não encontrado.");
 
+        EnsureProductIsNotDeletedForStockOperation(product);
         EnsureReservedStock(product, request.Quantity);
         product.ReservedStock -= request.Quantity;
 
@@ -238,9 +245,10 @@ public class ProductService : IProductService
         ValidatePositiveQuantity(request.Quantity);
 
         var product = await _context.Products
-            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            .FirstOrDefaultAsync(p => p.Id == id)
             ?? throw new NotFoundException("Produto não encontrado.");
 
+        EnsureProductIsNotDeletedForStockOperation(product);
         EnsureReservedStock(product, request.Quantity);
         EnsureAvailableStock(product, request.Quantity);
 
@@ -269,8 +277,18 @@ public class ProductService : IProductService
             product.Name,
             product.Stock,
             product.Stock - product.ReservedStock,
-            product.Price);
+            product.Price,
+            product.IsDeleted);
 
+
+    private static void EnsureProductIsNotDeletedForStockOperation(Product product)
+    {
+        if (product.IsDeleted)
+        {
+            throw new ValidationException("Produto excluído não pode ser movimentado.");
+        }
+    }
+    
     private static void ValidateCreateRequest(CreateProductRequest request)
     {
         ValidateRequestBody(request);

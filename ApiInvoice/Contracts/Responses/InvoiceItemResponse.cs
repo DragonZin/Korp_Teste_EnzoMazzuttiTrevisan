@@ -5,5 +5,6 @@ public record InvoiceItemResponse(
     Guid ProductId,
     decimal UnitPrice,
     int Quantity,
-    decimal TotalPrice
+    decimal TotalPrice,
+    bool? IsDeleted = null
 );

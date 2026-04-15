@@ -56,6 +56,11 @@ public class InvoiceProductService : IInvoiceProductService
                     throw new NotFoundException($"Produto {itemRequest.ProductId} não encontrado.");
                 }
 
+                if (product.IsDeleted)
+                {
+                    throw new ValidationException("Produto excluído não pode ser movimentado.");
+                }
+
                 existingItemsByProductId.TryGetValue(itemRequest.ProductId, out var existingItem);
 
                 var previousQuantity = existingItem?.Quantity ?? 0;
@@ -284,6 +289,7 @@ public class InvoiceProductService : IInvoiceProductService
     private sealed record ProductApiResponse(
         Guid Id,
         int Stock,
-        decimal Price
+        decimal Price,
+        bool IsDeleted
     );
 }
