@@ -1,6 +1,27 @@
 :host {
   display: block;
 }
+
+header .navbar-container {
+  flex-wrap: nowrap;
+}
+
 header .nav {
   row-gap: 0.5rem;
+}
+
+header .navbar-actions {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 767.98px) {
+  header .navbar-container {
+    flex-wrap: wrap;
+  }
+
+  header .navbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
 }
