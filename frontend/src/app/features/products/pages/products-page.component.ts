@@ -154,26 +154,34 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
       </div>
     </section>
 
-    <div *ngIf="isDrawerOpen()" class="overlay" (click)="closeDrawer()" aria-hidden="true"></div>
-
-    <aside *ngIf="isDrawerOpen()" class="drawer p-4" role="dialog" aria-modal="true">
-      <div class="d-flex justify-content-between align-items-start mb-3">
-        <div>
-          <h3 class="h5 mb-1">{{ drawerMode() === 'create' ? 'Novo produto' : 'Editar produto' }}</h3>
-          <p class="text-body-secondary mb-0">Preencha os campos para salvar.</p>
+    <div *ngIf="isDrawerOpen()" class="overlay" (click)="closeDrawer()" aria-hidden="true">
+      <div
+        class="modal-container p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-modal-title"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h3 id="product-modal-title" class="h5 mb-1">
+              {{ drawerMode() === 'create' ? 'Novo produto' : 'Editar produto' }}
+            </h3>
+            <p class="text-body-secondary mb-0">Preencha os campos para salvar.</p>
+          </div>
+          <button type="button" class="btn-close" aria-label="Fechar modal" (click)="closeDrawer()"></button>
         </div>
-        <button type="button" class="btn-close" aria-label="Fechar" (click)="closeDrawer()"></button>
-      </div>
 
-      <app-product-form
-        [product]="selectedProduct()"
-        [isSubmitting]="isSaving()"
-        [apiErrorMessage]="formApiErrorMessage()"
-        [apiFieldErrors]="formApiFieldErrors()"
-        (submitted)="submitForm($event)"
-        (cancelled)="closeDrawer()"
-      />
-    </aside>
+        <app-product-form
+          [product]="selectedProduct()"
+          [isSubmitting]="isSaving()"
+          [apiErrorMessage]="formApiErrorMessage()"
+          [apiFieldErrors]="formApiFieldErrors()"
+          (submitted)="submitForm($event)"
+          (cancelled)="closeDrawer()"
+        />
+      </div>
+    </div>
   `,
 })
 export class ProductsPageComponent implements OnInit, OnDestroy {

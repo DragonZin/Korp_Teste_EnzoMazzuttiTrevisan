@@ -110,16 +110,18 @@
   inset: 0;
   background-color: rgba(0, 0, 0, 0.4);
   z-index: 1040;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
 }
 
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100vh;
-  width: min(100%, 440px);
-  background: var(--bs-body-bg);
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
-  z-index: 1050;
+.modal-container {
+  width: min(100%, 640px);
+  max-height: min(100vh - 2rem, 860px);
   overflow-y: auto;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.2);
 }
