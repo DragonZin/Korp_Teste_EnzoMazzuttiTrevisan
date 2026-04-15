@@ -5,13 +5,14 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
+import { PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
 
 @Component({
   selector: 'app-invoices-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, PaginationControlsComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -86,29 +87,20 @@ import { Invoice } from '../models/invoice.model';
           </li>
         </ul>
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3" *ngIf="!isLoading() && invoices().length > 0">
-          <p class="text-body-secondary mb-0">
-            Exibindo {{ invoices().length }} de {{ totalItems() }} itens (página {{ page() }} de {{ totalPages() }}).
-          </p>
-          <div class="btn-group" role="group" aria-label="Paginação das notas">
-            <button
-              type="button"
-              class="btn btn-outline-secondary"
-              (click)="previousPage()"
-              [disabled]="isLoading() || page() <= 1"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              class="btn btn-outline-secondary"
-              (click)="nextPage()"
-              [disabled]="isLoading() || page() >= totalPages()"
-            >
-              Próxima
-            </button>
-          </div>
-        </div>
+        <app-pagination-controls
+          [currentItemCount]="invoices().length"
+          [totalItems]="totalItems()"
+          [page]="page()"
+          [totalPages]="totalPages()"
+          [pageSize]="pageSize()"
+          [pageSizeOptions]="pageSizeOptions"
+          [isLoading]="isLoading()"
+          pageSizeId="invoices-page-size"
+          ariaLabel="Paginação das notas"
+          (previous)="previousPage()"
+          (next)="nextPage()"
+          (pageSizeChange)="onPageSizeChange($event)"
+        />
       </div>
     </section>
   `
@@ -121,6 +113,7 @@ export class InvoicesPageComponent implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly page = signal(1);
   readonly pageSize = signal(10);
+  readonly pageSizeOptions = [10, 25, 50] as const;
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);
   readonly selectedStatus = signal<'1' | '2' | ''>('');
@@ -161,6 +154,15 @@ export class InvoicesPageComponent implements OnInit {
   onStatusChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value as '' | '1' | '2';
     this.selectedStatus.set(value);
+    this.loadInvoices(1);
+  }
+  
+  onPageSizeChange(nextPageSize: number): void {
+    if (!Number.isFinite(nextPageSize) || !this.pageSizeOptions.includes(nextPageSize as 10 | 25 | 50)) {
+      return;
+    }
+
+    this.pageSize.set(nextPageSize);
     this.loadInvoices(1);
   }
 

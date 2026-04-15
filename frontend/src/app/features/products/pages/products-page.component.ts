@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
+import { PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
 import { ProductFormComponent } from '../components/product-form.component';
 import { ProductsApiService } from '../data/products-api.service';
 import { CreateProductRequest } from '../models/create-product-request.model';
@@ -17,7 +18,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
 @Component({
   selector: 'app-products-page',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, ProductFormComponent],
+  imports: [CommonModule, CurrencyPipe, ProductFormComponent, PaginationControlsComponent],
   styleUrl: './products-page.component.scss',
   template: `
     <section class="card border-0 shadow-sm">
@@ -136,46 +137,20 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
           Atualizando lista...
         </div>
 
-        <div
-          class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3"
-          *ngIf="!isInitialLoading() && totalItems() > 0"
-        >
-          <p class="text-body-secondary mb-0">
-            Exibindo {{ products().length }} de {{ totalItems() }} itens (página {{ page() }} de
-            {{ totalPages() }}).
-          </p>
-
-          <div class="d-flex flex-wrap align-items-center gap-2">
-            <label class="form-label mb-0 text-body-secondary" for="products-page-size">Itens por página</label>
-            <select
-              id="products-page-size"
-              class="form-select form-select-sm page-size-select"
-              [value]="pageSize()"
-              (change)="onPageSizeChange($event)"
-            >
-              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-            </select>
-
-            <div class="btn-group btn-group-sm" role="group" aria-label="Paginação de produtos">
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                (click)="goToPreviousPage()"
-                [disabled]="!canGoToPreviousPage()"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                (click)="goToNextPage()"
-                [disabled]="!canGoToNextPage()"
-              >
-                Próxima
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-pagination-controls
+          [currentItemCount]="products().length"
+          [totalItems]="totalItems()"
+          [page]="page()"
+          [totalPages]="totalPages()"
+          [pageSize]="pageSize()"
+          [pageSizeOptions]="pageSizeOptions"
+          [isLoading]="isLoading()"
+          pageSizeId="products-page-size"
+          ariaLabel="Paginação de produtos"
+          (previous)="goToPreviousPage()"
+          (next)="goToNextPage()"
+          (pageSizeChange)="onPageSizeChange($event)"
+        />
       </div>
     </section>
 
@@ -283,10 +258,7 @@ export class ProductsPageComponent implements OnInit {
     return !this.isLoading() && this.page() < this.totalPages();
   }
 
-  onPageSizeChange(event: Event): void {
-    const target = event.target as HTMLSelectElement | null;
-    const nextPageSize = Number(target?.value);
-
+  onPageSizeChange(nextPageSize: number): void {
     if (!Number.isFinite(nextPageSize) || !this.pageSizeOptions.includes(nextPageSize as 25 | 50 | 75 | 100)) {
       return;
     }
