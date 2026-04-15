@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
@@ -170,10 +170,25 @@ import { Invoice } from '../models/invoice.model';
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-invoice-title"
+        aria-describedby="create-invoice-subtitle"
         (click)="$event.stopPropagation()"
       >
-        <div class="card-body">
-          <h3 id="create-invoice-title" class="h5 mb-3">Nova nota fiscal</h3>
+        <div class="card-body p-4 p-sm-4">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <h3 id="create-invoice-title" class="h5 mb-1">Nova nota fiscal</h3>
+              <p id="create-invoice-subtitle" class="text-body-secondary mb-0">
+                Preencha os dados do cliente para criar a nota.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-close"
+              aria-label="Fechar modal"
+              (click)="closeCreateModal()"
+              [disabled]="isCreatingInvoice()"
+            ></button>
+          </div>
 
           <app-invoice-form
             [isSubmitting]="isCreatingInvoice()"
@@ -182,7 +197,6 @@ import { Invoice } from '../models/invoice.model';
             (submitted)="submitCreateInvoice($event)"
             (cancelled)="closeCreateModal()"
           />
-
         </div>
       </div>
     </div>
@@ -270,6 +284,13 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     this.loadInvoices(this.page() + 1);
+  }
+  
+  @HostListener('document:keydown.escape')
+  onEscapePressed(): void {
+    if (this.isCreateModalOpen()) {
+      this.closeCreateModal();
+    }
   }
 
   openCreateModal(): void {
