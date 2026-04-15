@@ -7,11 +7,12 @@ import { finalize } from 'rxjs';
 import { ProductsApiService } from '../../products/data/products-api.service';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
+import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.component';
 
 @Component({
   selector: 'app-invoice-print-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, InvoiceSummaryCardComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -62,38 +63,7 @@ import { Invoice } from '../models/invoice.model';
 
         <ng-container *ngIf="invoice() as invoice">
           <div class="invoice-print-area">
-            <div class="row g-3 mb-4">
-              <div class="col-md-4">
-                <label class="form-label">Cliente</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ invoice.customerName }}</p>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Documento</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ invoice.customerDocument }}</p>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Status</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ getStatusLabel(invoice.status) }}</p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Emissão</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ invoice.createdAt | date: 'short' }}</p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Fechamento</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">
-                  {{ invoice.closedAt ? (invoice.closedAt | date: 'short') : '-' }}
-                </p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Total</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ invoice.totalAmount | currency: 'BRL' }}</p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Número</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">NF-{{ invoice.number }}</p>
-              </div>
-            </div>
+          <app-invoice-summary-card [invoice]="invoice" mode="readonly"></app-invoice-summary-card>
 
             <h3 class="h6 mb-3">Produtos da nota</h3>
 

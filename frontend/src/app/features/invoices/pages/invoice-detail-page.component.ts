@@ -10,11 +10,12 @@ import { ProductsApiService } from '../../products/data/products-api.service';
 import { Product } from '../../products/models/product.model';
 import { QuantityStepperComponent } from '../components/quantity-stepper.component';
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
+import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.component';
 
 @Component({
   selector: 'app-invoice-detail-page',
   standalone: true,
-  imports: [CommonModule, QuantityStepperComponent, BaseModalComponent],
+  imports: [CommonModule, QuantityStepperComponent, BaseModalComponent, InvoiceSummaryCardComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -55,84 +56,55 @@ import { BaseModalComponent } from '../../../core/components/modal/base-modal.co
 
         <ng-container *ngIf="invoice() as invoice">
           <div class="invoice-print-area">
-            <div class="row g-3 mb-4">
-              <div class="col-md-4">
-                <label class="form-label">Cliente</label>
-                <div class="d-flex align-items-start gap-2 editable-field-wrap">
-                  <input
-                    type="text"
-                    class="form-control"
-                    [readonly]="!isEditingCustomerName()"
-                    [value]="isEditingCustomerName() ? editedCustomerName() : invoice.customerName"
-                    maxlength="255"
-                    (input)="editedCustomerName.set(($any($event.target)).value)"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-outline-primary no-print"
-                    (click)="isEditingCustomerName() ? saveCustomerName() : startEditingCustomerName()"
-                    [disabled]="isUpdatingCustomerName() || isInvoiceClosed()"
-                  >
-                    {{ isUpdatingCustomerName() ? 'Salvando...' : (isEditingCustomerName() ? 'Salvar' : 'Editar') }}
-                  </button>
-                </div>
-                <div class="mt-2 no-print" *ngIf="isEditingCustomerName()">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditingCustomerName()">
-                    Cancelar
-                  </button>
-                </div>
+            <app-invoice-summary-card [invoice]="invoice" mode="editable">
+              <div invoice-customer-field class="d-flex align-items-start gap-2 editable-field-wrap">
+                <input
+                  type="text"
+                  class="form-control"
+                  [readonly]="!isEditingCustomerName()"
+                  [value]="isEditingCustomerName() ? editedCustomerName() : invoice.customerName"
+                  maxlength="255"
+                  (input)="editedCustomerName.set(($any($event.target)).value)"
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary no-print"
+                  (click)="isEditingCustomerName() ? saveCustomerName() : startEditingCustomerName()"
+                  [disabled]="isUpdatingCustomerName() || isInvoiceClosed()"
+                >
+                  {{ isUpdatingCustomerName() ? 'Salvando...' : (isEditingCustomerName() ? 'Salvar' : 'Editar') }}
+                </button>
+              </div>
+              <div invoice-customer-field class="mt-2 no-print" *ngIf="isEditingCustomerName()">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditingCustomerName()">
+                  Cancelar
+                </button>
               </div>
 
-              <div class="col-md-4">
-                <label class="form-label">Documento</label>
-                <div class="d-flex align-items-start gap-2 editable-field-wrap">
-                  <input
-                    type="text"
-                    class="form-control"
-                    [readonly]="!isEditingCustomerDocument()"
-                    [value]="isEditingCustomerDocument() ? editedCustomerDocument() : invoice.customerDocument"
-                    maxlength="18"
-                    (input)="editedCustomerDocument.set(($any($event.target)).value)"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-outline-primary no-print"
-                    (click)="isEditingCustomerDocument() ? saveCustomerDocument() : startEditingCustomerDocument()"
-                    [disabled]="isUpdatingCustomerDocument() || invoice.status === 2"
-                  >
-                    {{ isUpdatingCustomerDocument() ? 'Salvando...' : (isEditingCustomerDocument() ? 'Salvar' : 'Editar') }}
-                  </button>
-                </div>
-                <div class="mt-2 no-print" *ngIf="isEditingCustomerDocument()">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditingCustomerDocument()">
-                    Cancelar
-                  </button>
-                </div>
+              <div invoice-document-field class="d-flex align-items-start gap-2 editable-field-wrap">
+                <input
+                  type="text"
+                  class="form-control"
+                  [readonly]="!isEditingCustomerDocument()"
+                  [value]="isEditingCustomerDocument() ? editedCustomerDocument() : invoice.customerDocument"
+                  maxlength="18"
+                  (input)="editedCustomerDocument.set(($any($event.target)).value)"
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary no-print"
+                  (click)="isEditingCustomerDocument() ? saveCustomerDocument() : startEditingCustomerDocument()"
+                  [disabled]="isUpdatingCustomerDocument() || invoice.status === 2"
+                >
+                  {{ isUpdatingCustomerDocument() ? 'Salvando...' : (isEditingCustomerDocument() ? 'Salvar' : 'Editar') }}
+                </button>
               </div>
-
-              <div class="col-md-4">
-                <label class="form-label">Status</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ getStatusLabel(invoice.status) }}</p>
+              <div invoice-document-field class="mt-2 no-print" *ngIf="isEditingCustomerDocument()">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditingCustomerDocument()">
+                  Cancelar
+                </button>
               </div>
-              <div class="col-md-3">
-                <label class="form-label">Emissão</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ invoice.createdAt | date: 'short' }}</p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Fechamento</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">
-                  {{ invoice.closedAt ? (invoice.closedAt | date: 'short') : '-' }}
-                </p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Total</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">{{ invoice.totalAmount | currency: 'BRL' }}</p>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Número</label>
-                <p class="form-control-plaintext border rounded px-3 py-2 mb-0">NF-{{ invoice.number }}</p>
-              </div>
-            </div>
+            </app-invoice-summary-card>
 
             <h3 class="h6 mb-3">Produtos da nota</h3>
 
@@ -520,10 +492,6 @@ export class InvoiceDetailPageComponent implements OnInit {
           this.errorMessage.set(this.getFriendlyErrorMessage(error));
         }
       });
-  }
-
-  protected getStatusLabel(status: number): 'Open' | 'Closed' {
-    return status === 2 ? 'Closed' : 'Open';
   }
 
   protected getProductDisplayName(productId: string): string {
