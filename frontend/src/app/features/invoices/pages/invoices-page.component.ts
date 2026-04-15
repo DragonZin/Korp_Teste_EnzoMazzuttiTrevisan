@@ -226,7 +226,8 @@ export class InvoicesPageComponent implements OnInit {
   loadInvoices(page = this.page()): void {
     this.isLoading.set(true);
     this.errorMessage.set(null);
-
+    this.successMessage.set(null);
+    
     this.invoicesApiService
       .list({
         page,

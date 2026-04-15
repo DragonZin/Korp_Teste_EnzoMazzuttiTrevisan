@@ -13,6 +13,10 @@ type ProductApiResponse = Omit<Product, 'availableQuantity'> & {
   availableQuantity?: number;
 };
 
+type GetProductsByIdsRequest = {
+  ids: string[];
+};
+
 @Injectable({ providedIn: 'root' })
 export class ProductsApiService {
   private readonly http = inject(HttpClient);
@@ -35,6 +39,14 @@ export class ProductsApiService {
     return this.http
       .get<ProductApiResponse>(`${this.productsUrl}/${id}`)
       .pipe(map((response) => this.normalizeProduct(response)));
+  }
+
+  getByIds(ids: string[]): Observable<Product[]> {
+    const payload: GetProductsByIdsRequest = { ids };
+
+    return this.http
+      .post<ProductApiResponse[]>(`${this.productsUrl}/batch`, payload)
+      .pipe(map((response) => response.map((product) => this.normalizeProduct(product))));
   }
 
   create(payload: CreateProductRequest, idempotencyKey?: string): Observable<Product> {

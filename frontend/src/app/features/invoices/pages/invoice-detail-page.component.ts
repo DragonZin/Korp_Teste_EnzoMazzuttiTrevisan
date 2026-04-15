@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, finalize, forkJoin, map, of } from 'rxjs';
+import { finalize } from 'rxjs';
 
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
@@ -172,20 +172,27 @@ export class InvoiceDetailPageComponent implements OnInit {
       return;
     }
 
-    const requests = uniqueProductIds.map((productId) =>
-      this.productsApiService.getById(productId).pipe(
-        map((product) => ({ productId, name: product.name })),
-        catchError(() => of({ productId, name: productId }))
-      )
-    );
+    this.productsApiService.getByIds(uniqueProductIds).subscribe({
+      next: (products) => {
+        const namesLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
+          accumulator[productId] = productId;
+          return accumulator;
+        }, {});
 
-    forkJoin(requests).subscribe((products) => {
-      const namesLookup = products.reduce<Record<string, string>>((accumulator, product) => {
-        accumulator[product.productId] = product.name;
-        return accumulator;
-      }, {});
+        products.forEach((product) => {
+          namesLookup[product.id] = product.name;
+        });
 
-      this.productNamesById.set(namesLookup);
+        this.productNamesById.set(namesLookup);
+      },
+      error: () => {
+        const fallbackLookup = uniqueProductIds.reduce<Record<string, string>>((accumulator, productId) => {
+          accumulator[productId] = productId;
+          return accumulator;
+        }, {});
+
+        this.productNamesById.set(fallbackLookup);
+      }
     });
   }
 

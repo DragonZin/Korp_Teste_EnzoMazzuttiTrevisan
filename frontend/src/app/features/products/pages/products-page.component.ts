@@ -1,7 +1,7 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { finalize } from 'rxjs';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { finalize, Subscription } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
@@ -91,7 +91,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
               </ng-container>
 
               <ng-template #productsBody>
-                <tr *ngFor="let product of products()">
+                <tr *ngFor="let product of products(); trackBy: trackByProductId">
                   <td>{{ product.code }}</td>
                   <td>{{ product.name }}</td>
                   <td class="text-end">{{ product.stock }}</td>
@@ -176,8 +176,9 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
     </aside>
   `,
 })
-export class ProductsPageComponent implements OnInit {
+export class ProductsPageComponent implements OnInit, OnDestroy {
   private readonly productsApiService = inject(ProductsApiService);
+  private loadProductsSubscription: Subscription | null = null;
   readonly skeletonRows = Array.from({ length: 5 }, (_, index) => index);
   readonly products = signal<Product[]>([]);
   readonly isLoading = signal(false);
@@ -201,6 +202,10 @@ export class ProductsPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadProducts();
+  }
+
+  ngOnDestroy(): void {
+    this.loadProductsSubscription?.unsubscribe();
   }
 
   openCreateDrawer(): void {
@@ -260,7 +265,11 @@ export class ProductsPageComponent implements OnInit {
   onPageSizeChange(nextPageSize: number): void {
     this.loadProductsBy(1, nextPageSize);
   }
-  
+
+  trackByProductId(_: number, product: Product): string {
+    return product.id;
+  }
+
   availabilityLabel(product: Product): string {
     const tone = this.getAvailabilityTone(product);
 
@@ -280,10 +289,11 @@ export class ProductsPageComponent implements OnInit {
   }
 
   private loadProductsBy(page: number, pageSize: number): void {
+    this.loadProductsSubscription?.unsubscribe();
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.productsApiService
+    this.loadProductsSubscription = this.productsApiService
       .list(page, pageSize)
       .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
@@ -313,9 +323,9 @@ export class ProductsPageComponent implements OnInit {
         .create(payload as CreateProductRequest)
         .pipe(finalize(() => this.isSaving.set(false)))
         .subscribe({
-          next: (createdProduct) => {
-            this.applyCreatedProduct(createdProduct);
+          next: () => {
             this.closeDrawer();
+            this.loadProducts();
           },
           error: (error: HttpErrorResponse) => this.handleFormError(error),
         });
@@ -333,9 +343,9 @@ export class ProductsPageComponent implements OnInit {
       .update(product.id, payload as UpdateProductRequest)
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
-        next: (updatedProduct) => {
-          this.applyUpdatedProduct(updatedProduct);
+        next: () => {
           this.closeDrawer();
+          this.loadProducts();
         },
         error: (error: HttpErrorResponse) => this.handleFormError(error),
       });
@@ -354,55 +364,17 @@ export class ProductsPageComponent implements OnInit {
       .delete(product.id)
       .pipe(finalize(() => this.isDeletingId.set(null)))
       .subscribe({
-        next: () => this.applyDeletedProduct(product.id),
+        next: () => {
+          const projectedTotalItems = Math.max(this.totalItems() - 1, 0);
+          const projectedTotalPages = projectedTotalItems === 0 ? 0 : Math.ceil(projectedTotalItems / this.pageSize());
+          const nextPage = projectedTotalPages > 0 ? Math.min(this.page(), projectedTotalPages) : 1;
+
+          this.loadProductsBy(nextPage, this.pageSize());
+        },
         error: (error: HttpErrorResponse) => {
           window.alert(this.getFriendlyErrorMessage(error));
         },
       });
-  }
-
-  private applyCreatedProduct(product: Product): void {
-    const sortedProducts = [product, ...this.products()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-    this.products.set(sortedProducts.slice(0, this.pageSize()));
-
-    this.totalItems.update((currentTotal) => currentTotal + 1);
-    this.recalculateTotalPages();
-  }
-
-  private applyUpdatedProduct(updatedProduct: Product): void {
-    this.products.update((currentProducts) =>
-      currentProducts
-        .map((product) => (product.id === updatedProduct.id ? updatedProduct : product))
-        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-    );
-
-    if (this.selectedProduct()?.id === updatedProduct.id) {
-      this.selectedProduct.set(updatedProduct);
-    }
-  }
-
-  private applyDeletedProduct(productId: string): void {
-    const beforeLength = this.products().length;
-    const updatedProducts = this.products().filter((product) => product.id !== productId);
-
-    if (updatedProducts.length === beforeLength) {
-      return;
-    }
-
-    this.products.set(updatedProducts);
-    this.totalItems.update((currentTotal) => Math.max(currentTotal - 1, 0));
-    this.recalculateTotalPages();
-
-    if (this.page() > this.totalPages()) {
-      this.page.set(Math.max(this.totalPages(), 1));
-    }
-  }
-
-  private recalculateTotalPages(): void {
-    const totalItems = this.totalItems();
-    const pageSize = this.pageSize();
-    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
-    this.totalPages.set(totalPages);
   }
 
   private getAvailabilityTone(product: Product): AvailabilityTone {
