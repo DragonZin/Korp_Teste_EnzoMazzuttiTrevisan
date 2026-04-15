@@ -8,11 +8,12 @@ import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
 import { ProductsApiService } from '../../products/data/products-api.service';
 import { Product } from '../../products/models/product.model';
+import { QuantityStepperComponent } from '../components/quantity-stepper.component';
 
 @Component({
   selector: 'app-invoice-detail-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, QuantityStepperComponent],
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
@@ -153,25 +154,17 @@ import { Product } from '../../products/models/product.model';
                     <td class="text-end">{{ product.unitPrice | currency: 'BRL' }}</td>
                     <td class="text-end">
                       <div class="d-inline-flex align-items-center gap-2" *ngIf="canManageItems(invoice); else readOnlyQuantity">
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm qty-button"
-                          (click)="decrementItemQuantity(product.productId)"
-                          [disabled]="isItemActionDisabled(product.productId) || product.quantity <= 1"
-                          aria-label="Diminuir quantidade"
-                        >
-                          -
-                        </button>
-                        <span class="quantity-value">{{ product.quantity }}</span>
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm qty-button"
-                          (click)="incrementItemQuantity(product.productId)"
+                        <app-quantity-stepper
+                          [value]="editableItemQuantities()[product.productId] ?? product.quantity"
+                          [min]="1"
                           [disabled]="isItemActionDisabled(product.productId)"
-                          aria-label="Aumentar quantidade"
-                        >
-                          +
-                        </button>
+                          inputAriaLabel="Quantidade do item {{ getProductDisplayName(product.productId) }}"
+                          decrementAriaLabel="Diminuir quantidade do item {{ getProductDisplayName(product.productId) }}"
+                          incrementAriaLabel="Aumentar quantidade do item {{ getProductDisplayName(product.productId) }}"
+                          (decrement)="decrementItemQuantity(product.productId)"
+                          (increment)="incrementItemQuantity(product.productId)"
+                          (commit)="commitItemQuantity(product.productId, $event)"
+                        />
                       </div>
                       <ng-template #readOnlyQuantity>{{ product.quantity }}</ng-template>
                     </td>
@@ -217,25 +210,17 @@ import { Product } from '../../products/models/product.model';
                 </div>
                 <div class="col-md-4">
                   <label class="form-label mb-1">Quantidade</label>
-                  <div class="d-flex align-items-center gap-2">
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary qty-button"
-                      (click)="decreaseAddQuantity()"
-                      [disabled]="isAddingProduct() || quantityToAdd() <= 1"
-                    >
-                      -
-                    </button>
-                    <span class="quantity-value">{{ quantityToAdd() }}</span>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary qty-button"
-                      (click)="increaseAddQuantity()"
-                      [disabled]="isAddingProduct()"
-                    >
-                      +
-                    </button>
-                  </div>
+                  <app-quantity-stepper
+                    [value]="quantityToAdd()"
+                    [min]="1"
+                    [disabled]="isAddingProduct()"
+                    inputAriaLabel="Quantidade do produto para adicionar"
+                    decrementAriaLabel="Diminuir quantidade do produto para adicionar"
+                    incrementAriaLabel="Aumentar quantidade do produto para adicionar"
+                    (decrement)="decreaseAddQuantity()"
+                    (increment)="increaseAddQuantity()"
+                    (commit)="commitAddQuantity($event)"
+                  />
                 </div>
               </div>
               <div class="d-flex justify-content-end mt-3">
@@ -285,6 +270,7 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly isLoadingProductsCatalog = signal(false);
   protected readonly selectedProductIdToAdd = signal('');
   protected readonly quantityToAdd = signal(1);
+  protected readonly editableItemQuantities = signal<Partial<Record<string, number>>>({});
   protected readonly isAddingProduct = signal(false);
   protected readonly updatingProductId = signal<string | null>(null);
   protected readonly removingProductId = signal<string | null>(null);
@@ -477,6 +463,18 @@ export class InvoiceDetailPageComponent implements OnInit {
     this.quantityToAdd.update((current) => Math.max(1, current - 1));
   }
 
+  protected commitAddQuantity(rawValue: string | number): void {
+    const normalizedQuantity = this.normalizeQuantity(rawValue);
+    if (normalizedQuantity === null) {
+      this.errorMessage.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
+      this.quantityToAdd.set(1);
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.quantityToAdd.set(normalizedQuantity);
+  }
+
   protected addSelectedProduct(): void {
     const invoice = this.invoice();
 
@@ -501,11 +499,13 @@ export class InvoiceDetailPageComponent implements OnInit {
       return;
     }
 
-    const quantity = this.quantityToAdd();
-    if (quantity < 1) {
-      this.errorMessage.set('A quantidade deve ser de no mínimo 1 unidade.');
+    const quantity = this.normalizeQuantity(this.quantityToAdd());
+    if (quantity === null) {
+      this.errorMessage.set('A quantidade deve ser um número inteiro de no mínimo 1 unidade.');
+      this.quantityToAdd.set(1);
       return;
     }
+
 
     this.isAddingProduct.set(true);
     this.errorMessage.set(null);
@@ -566,6 +566,41 @@ export class InvoiceDetailPageComponent implements OnInit {
     this.updateProductQuantity(productId, currentItem.quantity - 1);
   }
 
+  protected commitItemQuantity(productId: string, rawValue: string | number): void {
+    const invoice = this.invoice();
+
+    if (!invoice) {
+      return;
+    }
+
+    const currentItem = invoice.products.find((item) => item.productId === productId);
+    if (!currentItem) {
+      this.errorMessage.set('Produto não encontrado na nota fiscal.');
+      return;
+    }
+
+    const normalizedQuantity = this.normalizeQuantity(rawValue);
+    if (normalizedQuantity === null) {
+      this.errorMessage.set('Informe uma quantidade válida (número inteiro com mínimo de 1 unidade).');
+      this.editableItemQuantities.update((current) => ({
+        ...current,
+        [productId]: currentItem.quantity
+      }));
+      return;
+    }
+
+    this.editableItemQuantities.update((current) => ({
+      ...current,
+      [productId]: normalizedQuantity
+    }));
+
+    if (normalizedQuantity === currentItem.quantity) {
+      return;
+    }
+
+    this.updateProductQuantity(productId, normalizedQuantity);
+  }
+
   protected removeProduct(productId: string): void {
     const invoice = this.invoice();
 
@@ -608,6 +643,7 @@ export class InvoiceDetailPageComponent implements OnInit {
           this.invoice.set(invoice);
           this.editedCustomerName.set(invoice.customerName);
           this.editedCustomerDocument.set(invoice.customerDocument);
+          this.syncEditableItemQuantities(invoice);
           this.loadProductNames(invoice);
 
         },
@@ -720,9 +756,33 @@ export class InvoiceDetailPageComponent implements OnInit {
 
   private handleInvoiceUpdated(updatedInvoice: Invoice): void {
     this.invoice.set(updatedInvoice);
+    this.syncEditableItemQuantities(updatedInvoice);
     this.loadProductNames(updatedInvoice);
   }
+  private syncEditableItemQuantities(invoice: Invoice): void {
+    const quantities = invoice.products.reduce<Record<string, number>>((accumulator, item) => {
+      accumulator[item.productId] = item.quantity;
+      return accumulator;
+    }, {});
 
+    this.editableItemQuantities.set(quantities);
+  }
+
+  private normalizeQuantity(rawValue: string | number): number | null {
+    const rawText = String(rawValue ?? '').trim();
+
+    if (!rawText) {
+      return null;
+    }
+
+    const parsedValue = Number(rawText);
+    if (!Number.isInteger(parsedValue) || Number.isNaN(parsedValue) || parsedValue < 1) {
+      return null;
+    }
+
+    return parsedValue;
+  }
+  
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0) {
       return 'Não foi possível conectar com a API de notas fiscais. Verifique se os serviços estão em execução.';
