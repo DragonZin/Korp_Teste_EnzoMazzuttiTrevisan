@@ -1,6 +1,6 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { finalize } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
@@ -12,42 +12,23 @@ import { Product } from '../models/product.model';
 import { UpdateProductRequest } from '../models/update-product-request.model';
 
 type ProductFormMode = 'create' | 'edit';
+type AvailabilityTone = 'low' | 'medium' | 'ok';
 
 @Component({
   selector: 'app-products-page',
   standalone: true,
   imports: [CommonModule, CurrencyPipe, ProductFormComponent],
-  styles: [
-    `
-      .overlay {
-        position: fixed;
-        inset: 0;
-        background-color: rgba(0, 0, 0, 0.4);
-        z-index: 1040;
-      }
-
-      .drawer {
-        position: fixed;
-        top: 0;
-        right: 0;
-        height: 100vh;
-        width: min(100%, 440px);
-        background: var(--bs-body-bg);
-        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
-        z-index: 1050;
-        overflow-y: auto;
-      }
-    `,
-  ],
+  styleUrl: './products-page.component.scss',
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="page-header">
           <div>
             <h2 class="h5 mb-1">Produtos</h2>
             <p class="text-body-secondary mb-0">Listagem e manutenção de produtos.</p>
           </div>
-          <div class="d-flex gap-2">
+
+          <div class="page-header__actions">
             <button
               type="button"
               class="btn btn-outline-secondary"
@@ -60,17 +41,25 @@ type ProductFormMode = 'create' | 'edit';
           </div>
         </div>
 
-        <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
-          {{ error }}
+        <div class="kpi-grid mb-3" *ngIf="!isInitialLoading()">
+          <article class="kpi-card">
+            <p class="kpi-card__label">Total de produtos</p>
+            <p class="kpi-card__value">{{ totalItems() }}</p>
+          </article>
+
+          <article class="kpi-card">
+            <p class="kpi-card__label">Estoque total (página)</p>
+            <p class="kpi-card__value">{{ totalStock() }}</p>
+          </article>
+
+          <article class="kpi-card">
+            <p class="kpi-card__label">Disponível (página)</p>
+            <p class="kpi-card__value">{{ totalAvailable() }}</p>
+          </article>
         </div>
 
-        <div
-          *ngIf="isLoading()"
-          class="d-flex align-items-center gap-2 mb-3 text-body-secondary"
-          aria-live="polite"
-        >
-          <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
-          <span>Carregando produtos...</span>
+        <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
+          {{ error }}
         </div>
 
         <div class="table-responsive">
@@ -79,56 +68,77 @@ type ProductFormMode = 'create' | 'edit';
               <tr>
                 <th>SKU</th>
                 <th>Nome</th>
+                <th class="text-end">Estoque</th>
                 <th class="text-end">Qtd. disponível</th>
                 <th class="text-end">Preço</th>
                 <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngIf="isLoading()">
-                <td colspan="5">
-                  <div class="placeholder-glow">
-                    <span class="placeholder col-12"></span>
-                  </div>
-                </td>
-              </tr>
+              <ng-container *ngIf="isInitialLoading(); else productsBody">
+                <tr *ngFor="let row of skeletonRows">
+                  <td colspan="6" class="py-2">
+                    <div class="skeleton-row">
+                      <span class="placeholder skeleton-cell skeleton-cell--sm"></span>
+                      <span class="placeholder skeleton-cell"></span>
+                      <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                      <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                      <span class="placeholder skeleton-cell skeleton-cell--xs"></span>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
 
-              <tr *ngFor="let product of products()">
-                <td>{{ product.code }}</td>
-                <td>{{ product.name }}</td>
-                <td class="text-end">{{ product.stock }}</td>
-                <td class="text-end">
-                  {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
-                </td>
-                <td class="text-end">
-                  <div class="d-inline-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openEditDrawer(product)">
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      (click)="deleteProduct(product)"
-                      [disabled]="isDeletingId() === product.id"
-                    >
-                      {{ isDeletingId() === product.id ? 'Excluindo...' : 'Excluir' }}
-                    </button>
-                  </div>
-                </td>
-              </tr>
+              <ng-template #productsBody>
+                <tr *ngFor="let product of products()">
+                  <td>{{ product.code }}</td>
+                  <td>{{ product.name }}</td>
+                  <td class="text-end">{{ product.stock }}</td>
+                  <td class="text-end">
+                    <div class="available-wrap">
+                      <span>{{ product.availableQuantity }}</span>
+                      <span class="badge" [ngClass]="availabilityClass(product)">
+                        {{ availabilityLabel(product) }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="text-end">
+                    {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                  </td>
+                  <td class="text-end">
+                    <div class="action-buttons">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openEditDrawer(product)">
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        (click)="deleteProduct(product)"
+                        [disabled]="isDeletingId() === product.id"
+                      >
+                        {{ isDeletingId() === product.id ? 'Excluindo...' : 'Excluir' }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
 
-              <tr *ngIf="!isLoading() && products().length === 0">
-                <td colspan="5" class="text-center text-body-secondary py-4">
-                  Nenhum produto encontrado.
-                </td>
-              </tr>
+                <tr *ngIf="!isLoading() && products().length === 0">
+                  <td colspan="6" class="text-center text-body-secondary py-5 empty-state">
+                    Nenhum produto encontrado.
+                  </td>
+                </tr>
+              </ng-template>
             </tbody>
           </table>
         </div>
 
+        <div *ngIf="isLoading() && !isInitialLoading()" class="small text-body-secondary mt-2" aria-live="polite">
+          Atualizando lista...
+        </div>
+
         <div
           class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3"
-          *ngIf="!isLoading() && totalItems() > 0"
+          *ngIf="!isInitialLoading() && totalItems() > 0"
         >
           <p class="text-body-secondary mb-0">
             Exibindo {{ products().length }} de {{ totalItems() }} itens (página {{ page() }} de
@@ -139,8 +149,7 @@ type ProductFormMode = 'create' | 'edit';
             <label class="form-label mb-0 text-body-secondary" for="products-page-size">Itens por página</label>
             <select
               id="products-page-size"
-              class="form-select form-select-sm"
-              style="width: auto"
+              class="form-select form-select-sm page-size-select"
               [value]="pageSize()"
               (change)="onPageSizeChange($event)"
             >
@@ -195,6 +204,7 @@ type ProductFormMode = 'create' | 'edit';
 export class ProductsPageComponent implements OnInit {
   private readonly productsApiService = inject(ProductsApiService);
   readonly pageSizeOptions = [25, 50, 75, 100] as const;
+  readonly skeletonRows = Array.from({ length: 5 }, (_, index) => index);
 
   readonly products = signal<Product[]>([]);
   readonly isLoading = signal(false);
@@ -210,6 +220,10 @@ export class ProductsPageComponent implements OnInit {
   readonly pageSize = signal<number>(this.pageSizeOptions[0]);
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);
+
+  readonly isInitialLoading = computed(() => this.isLoading() && this.products().length === 0);
+  readonly totalStock = computed(() => this.products().reduce((acc, product) => acc + product.stock, 0));
+  readonly totalAvailable = computed(() => this.products().reduce((acc, product) => acc + product.availableQuantity, 0));
 
   ngOnInit(): void {
     this.loadProducts();
@@ -279,6 +293,24 @@ export class ProductsPageComponent implements OnInit {
 
     this.loadProductsBy(1, nextPageSize);
   }
+  
+  availabilityLabel(product: Product): string {
+    const tone = this.getAvailabilityTone(product);
+
+    if (tone === 'low') {
+      return 'Baixo';
+    }
+
+    if (tone === 'medium') {
+      return 'Médio';
+    }
+
+    return 'OK';
+  }
+
+  availabilityClass(product: Product): string {
+    return `availability-badge availability-badge--${this.getAvailabilityTone(product)}`;
+  }
 
   private loadProductsBy(page: number, pageSize: number): void {
     this.isLoading.set(true);
@@ -314,9 +346,9 @@ export class ProductsPageComponent implements OnInit {
         .create(payload as CreateProductRequest)
         .pipe(finalize(() => this.isSaving.set(false)))
         .subscribe({
-          next: () => {
+          next: (createdProduct) => {
+            this.applyCreatedProduct(createdProduct);
             this.closeDrawer();
-            this.loadProducts();
           },
           error: (error: HttpErrorResponse) => this.handleFormError(error),
         });
@@ -334,9 +366,9 @@ export class ProductsPageComponent implements OnInit {
       .update(product.id, payload as UpdateProductRequest)
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
-        next: () => {
+        next: (updatedProduct) => {
+          this.applyUpdatedProduct(updatedProduct);
           this.closeDrawer();
-          this.loadProducts();
         },
         error: (error: HttpErrorResponse) => this.handleFormError(error),
       });
@@ -355,11 +387,73 @@ export class ProductsPageComponent implements OnInit {
       .delete(product.id)
       .pipe(finalize(() => this.isDeletingId.set(null)))
       .subscribe({
-        next: () => this.loadProducts(),
+        next: () => this.applyDeletedProduct(product.id),
         error: (error: HttpErrorResponse) => {
           window.alert(this.getFriendlyErrorMessage(error));
         },
       });
+  }
+
+  private applyCreatedProduct(product: Product): void {
+    const sortedProducts = [product, ...this.products()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    this.products.set(sortedProducts.slice(0, this.pageSize()));
+
+    this.totalItems.update((currentTotal) => currentTotal + 1);
+    this.recalculateTotalPages();
+  }
+
+  private applyUpdatedProduct(updatedProduct: Product): void {
+    this.products.update((currentProducts) =>
+      currentProducts
+        .map((product) => (product.id === updatedProduct.id ? updatedProduct : product))
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    );
+
+    if (this.selectedProduct()?.id === updatedProduct.id) {
+      this.selectedProduct.set(updatedProduct);
+    }
+  }
+
+  private applyDeletedProduct(productId: string): void {
+    const beforeLength = this.products().length;
+    const updatedProducts = this.products().filter((product) => product.id !== productId);
+
+    if (updatedProducts.length === beforeLength) {
+      return;
+    }
+
+    this.products.set(updatedProducts);
+    this.totalItems.update((currentTotal) => Math.max(currentTotal - 1, 0));
+    this.recalculateTotalPages();
+
+    if (this.page() > this.totalPages()) {
+      this.page.set(Math.max(this.totalPages(), 1));
+    }
+  }
+
+  private recalculateTotalPages(): void {
+    const totalItems = this.totalItems();
+    const pageSize = this.pageSize();
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+    this.totalPages.set(totalPages);
+  }
+
+  private getAvailabilityTone(product: Product): AvailabilityTone {
+    if (product.stock <= 0 || product.availableQuantity <= 0) {
+      return 'low';
+    }
+
+    const ratio = product.availableQuantity / product.stock;
+
+    if (ratio <= 0.3) {
+      return 'low';
+    }
+
+    if (ratio <= 0.7) {
+      return 'medium';
+    }
+
+    return 'ok';
   }
 
   private handleFormError(error: HttpErrorResponse): void {

@@ -1,0 +1,125 @@
+:host {
+  display: block;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.page-header__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.kpi-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.kpi-card {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+  background: var(--bs-tertiary-bg);
+}
+
+.kpi-card__label {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-card__value {
+  margin: 0.3rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 0.8fr 2fr 0.6fr 0.6fr 0.8fr;
+  gap: 0.5rem;
+}
+
+.skeleton-cell {
+  display: block;
+  height: 0.95rem;
+}
+
+.skeleton-cell--sm {
+  width: 70%;
+}
+
+.skeleton-cell--xs {
+  width: 85%;
+  justify-self: end;
+}
+
+.available-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.availability-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.28rem 0.45rem;
+}
+
+.availability-badge--low {
+  background-color: rgba(220, 53, 69, 0.12);
+  color: #b02a37;
+}
+
+.availability-badge--medium {
+  background-color: rgba(255, 193, 7, 0.18);
+  color: #996c00;
+}
+
+.availability-badge--ok {
+  background-color: rgba(25, 135, 84, 0.14);
+  color: #0f5132;
+}
+
+.action-buttons {
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.empty-state {
+  font-style: italic;
+}
+
+.page-size-select {
+  width: auto;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 1040;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(100%, 440px);
+  background: var(--bs-body-bg);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
+  z-index: 1050;
+  overflow-y: auto;
+}
