@@ -5,7 +5,7 @@ import { finalize } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
-import { PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
+import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
 import { ProductFormComponent } from '../components/product-form.component';
 import { ProductsApiService } from '../data/products-api.service';
 import { CreateProductRequest } from '../models/create-product-request.model';
@@ -190,6 +190,7 @@ export class ProductsPageComponent implements OnInit {
   readonly drawerMode = signal<ProductFormMode>('create');
   readonly selectedProduct = signal<Product | null>(null);
   readonly page = signal(1);
+  readonly pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
   readonly pageSize = signal<number>(this.pageSizeOptions[0]);
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);

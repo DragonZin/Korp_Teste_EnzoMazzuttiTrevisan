@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
+export const DEFAULT_PAGE_SIZE_OPTIONS: ReadonlyArray<number> = [ 25, 50, 75, 100];
+
 @Component({
   selector: 'app-pagination-controls',
   standalone: true,
@@ -55,7 +57,7 @@ export class PaginationControlsComponent {
   @Input({ required: true }) page = 1;
   @Input({ required: true }) totalPages = 1;
   @Input({ required: true }) pageSize = 10;
-  @Input({ required: true }) pageSizeOptions: ReadonlyArray<number> = [25,50,75,100];
+  @Input({ required: true }) pageSizeOptions: ReadonlyArray<number> = DEFAULT_PAGE_SIZE_OPTIONS;
   @Input() isLoading = false;
   @Input() pageSizeId = 'page-size';
   @Input() ariaLabel = 'Paginação';

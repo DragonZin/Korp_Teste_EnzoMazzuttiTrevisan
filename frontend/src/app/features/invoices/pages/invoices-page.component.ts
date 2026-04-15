@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
-import { PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
+import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { Invoice } from '../models/invoice.model';
 
@@ -112,7 +112,8 @@ export class InvoicesPageComponent implements OnInit {
   readonly isLoading = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly page = signal(1);
-  readonly pageSize = signal(10);
+  readonly pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS;
+  readonly pageSize = signal(this.pageSizeOptions[0]);
   readonly totalItems = signal(0);
   readonly totalPages = signal(0);
   readonly selectedStatus = signal<'1' | '2' | ''>('');
