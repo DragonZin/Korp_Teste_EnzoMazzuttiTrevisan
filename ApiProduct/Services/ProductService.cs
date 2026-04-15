@@ -42,6 +42,7 @@ public class ProductService : IProductService
                 p.Code,
                 p.Name,
                 p.Stock,
+                p.Stock,
                 p.Price))
             .ToListAsync();
 
@@ -58,11 +59,12 @@ public class ProductService : IProductService
     {
         var product = await _context.Products
             .AsNoTracking()
-            .Where(p => p.Id == id)
+            .Where(p => p.Id == id && !p.IsDeleted)
             .Select(p => new ProductResponse(
                 p.Id,
                 p.Code,
                 p.Name,
+                p.Stock,
                 p.Stock,
                 p.Price))
             .FirstOrDefaultAsync();
@@ -92,6 +94,7 @@ public class ProductService : IProductService
                 p.Id,
                 p.Code,
                 p.Name,
+                p.Stock,
                 p.Stock,
                 p.Price))
             .ToListAsync();
@@ -209,6 +212,7 @@ public class ProductService : IProductService
             product.Id,
             product.Code,
             product.Name,
+            product.Stock,
             product.Stock,
             product.Price);
 

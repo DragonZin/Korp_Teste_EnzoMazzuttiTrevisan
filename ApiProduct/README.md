@@ -41,6 +41,7 @@ Resposta paginada:
       "code": "SKU-001",
       "name": "Teclado Mecânico",
       "stock": 25,
+      "availableQuantity": 20,
       "price": 249.90
     }
   ],
@@ -118,6 +119,7 @@ Body:
 - `Code` é obrigatório, único (entre produtos não excluídos) e com até 50 caracteres.
 - `Name` é obrigatório e com até 255 caracteres.
 - `Stock` e `Price` não podem ser negativos.
+- `AvailableQuantity` é retornado nas respostas de consulta e representa a quantidade disponível atual do produto.
 - Exclusão é lógica (`is_deleted = true`).
 - Atualizações de estoque usam concorrência otimista (token `xmin` do PostgreSQL via EF Core) para evitar inconsistência em disputa simultânea.
 - Em conflito de concorrência, a API responde erro amigável de conflito (`409`) orientando atualização dos dados e nova tentativa.
