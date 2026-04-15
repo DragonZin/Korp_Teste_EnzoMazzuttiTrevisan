@@ -13,7 +13,7 @@ import { InvoiceFormComponent } from '../components/invoice-form.component';
 import { InvoicesTableComponent } from '../components/invoices-table.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
-import { Invoice } from '../models/invoice.model';
+import { InvoiceListItem } from '../models/invoice-list-item.model';
 import { getRelevantInvoiceDate } from '../utils/invoice-date.util';
 import { toInvoiceStatusClass, toInvoiceStatusLabel } from '../utils/invoice-status.util';
 
@@ -27,7 +27,7 @@ import { toInvoiceStatusClass, toInvoiceStatusLabel } from '../utils/invoice-sta
 export class InvoicesPageComponent implements OnInit, OnDestroy {
   private readonly invoicesApiService = inject(InvoicesApiService);
   private readonly router = inject(Router);
-  private readonly paginatedInvoices = new PaginatedListStore<Invoice>({
+  private readonly paginatedInvoices = new PaginatedListStore<InvoiceListItem>({
     initialPageSize: DEFAULT_PAGE_SIZE_OPTIONS[0],
     loader: ({ page, pageSize }) => this.invoicesApiService.list({
       page,
@@ -135,7 +135,7 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteInvoice(invoice: Invoice): void {
+  deleteInvoice(invoice: InvoiceListItem): void {
     const shouldDelete = window.confirm(`Deseja realmente excluir a nota NF-${invoice.number}?`);
     if (!shouldDelete) {
       return;
@@ -159,7 +159,7 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  closeInvoice(invoice: Invoice): void {
+  closeInvoice(invoice: InvoiceListItem): void {
     if (invoice.status === 2) {
       return;
     }
@@ -186,7 +186,7 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
     return this.deletingInvoiceId() === invoiceId || this.closingInvoiceId() === invoiceId;
   }
 
-  printInvoice(invoice: Invoice): void {
+  printInvoice(invoice: InvoiceListItem): void {
     void this.router.navigate(['/invoices', invoice.id, 'print']);
   }
 

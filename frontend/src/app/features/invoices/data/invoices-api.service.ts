@@ -6,6 +6,7 @@ import { API_CONFIG } from '../../../core/api/api.config';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { withIdempotencyKey } from '../../../core/http/idempotency.interceptor';
 import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
+import { InvoiceListItem } from '../models/invoice-list-item.model';
 import { Invoice } from '../models/invoice.model';
 import { ManageInvoiceItemsRequest } from '../models/manage-invoice-items-request.model';
 import { UpdateInvoiceRequest } from '../models/update-invoice-request.model';
@@ -15,7 +16,7 @@ export class InvoicesApiService {
   private readonly http = inject(HttpClient);
   private readonly invoicesUrl = `${API_CONFIG.baseUrl}/invoices`;
 
-  list(params?: { page?: number; pageSize?: number; status?: 1 | 2 }): Observable<PagedResponse<Invoice>> {
+  list(params?: { page?: number; pageSize?: number; status?: 1 | 2 }): Observable<PagedResponse<InvoiceListItem>> {
     let httpParams = new HttpParams();
 
     if (params?.page) {
@@ -30,7 +31,7 @@ export class InvoicesApiService {
       httpParams = httpParams.set('status', params.status.toString());
     }
 
-    return this.http.get<PagedResponse<Invoice>>(this.invoicesUrl, { params: httpParams });
+    return this.http.get<PagedResponse<InvoiceListItem>>(this.invoicesUrl, { params: httpParams });
   }
 
   getById(id: string): Observable<Invoice> {

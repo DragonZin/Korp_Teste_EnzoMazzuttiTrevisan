@@ -29,14 +29,13 @@ public class InvoiceService : IInvoiceService
         _logger = logger;
     }
 
-    public async Task<PagedResponse<InvoiceResponse>> GetInvoicesAsync(int page, int pageSize, InvoiceStatus? status)
+    public async Task<PagedResponse<InvoiceListItemResponse>> GetInvoicesAsync(int page, int pageSize, InvoiceStatus? status)
     {
         var normalizedPage = page < 1 ? 1 : page;
         var normalizedPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         var query = _context.Invoices
             .AsNoTracking()
-            .Include(i => i.Products)
             .AsQueryable();
 
         if (status.HasValue)
@@ -51,10 +50,20 @@ public class InvoiceService : IInvoiceService
             .OrderByDescending(i => i.CreatedAt)
             .Skip((normalizedPage - 1) * normalizedPageSize)
             .Take(normalizedPageSize)
+            .Select(i => new InvoiceListItemResponse(
+                i.Id,
+                i.Number,
+                i.Status,
+                i.TotalAmount,
+                i.CustomerName,
+                i.CustomerDocument,
+                i.CreatedAt,
+                i.ClosedAt,
+                i.Products.Count()))
             .ToListAsync();
 
-        return new PagedResponse<InvoiceResponse>(
-            invoices.Select(InvoiceMapper.ToResponse).ToList(),
+        return new PagedResponse<InvoiceListItemResponse>(
+            invoices,
             normalizedPage,
             normalizedPageSize,
             totalItems,

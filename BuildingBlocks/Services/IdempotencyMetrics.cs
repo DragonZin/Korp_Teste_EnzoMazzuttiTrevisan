@@ -3,64 +3,47 @@ using System.Threading;
 
 namespace BuildingBlocks.Services;
 
+/// <summary>
+/// Publishes runtime metrics related to idempotency processing.
+/// </summary>
 public sealed class IdempotencyMetrics : IDisposable
 {
     private readonly Meter _meter;
-    private readonly ObservableGauge<long> _tableSizeGauge;
-    private readonly ObservableGauge<double> _reuseRateGauge;
+    private readonly Counter<long> _totalRequests;
+    private readonly Counter<long> _cacheHits;
+    private readonly Counter<long> _cacheMisses;
 
-    private long _tableSize;
-    private long _handledRequests;
-    private long _reusedRequests;
+    private long _inFlightRequests;
+    private double _avgRequestDurationMs;
 
     public IdempotencyMetrics()
     {
         _meter = new Meter("BuildingBlocks.Idempotency", "1.0.0");
 
-        _tableSizeGauge = _meter.CreateObservableGauge(
-            name: "idempotency.table.size",
-            observeValue: () => Interlocked.Read(ref _tableSize),
-            unit: "records",
-            description: "Quantidade atual de registros na tabela de idempotência.");
+        _totalRequests = _meter.CreateCounter<long>("idempotency.requests.total");
+        _cacheHits = _meter.CreateCounter<long>("idempotency.cache.hits.total");
+        _cacheMisses = _meter.CreateCounter<long>("idempotency.cache.misses.total");
 
-        _reuseRateGauge = _meter.CreateObservableGauge(
-            name: "idempotency.key.reuse_rate",
-            observeValue: () => CalculateReuseRate(),
-            unit: "ratio",
-            description: "Taxa de reaproveitamento de Idempotency-Key sobre requisições idempotentes tratadas.");
+        // Observable instruments are owned by Meter and do not implement IDisposable.
+        _meter.CreateObservableGauge("idempotency.requests.in_flight", () => Volatile.Read(ref _inFlightRequests));
+        _meter.CreateObservableGauge("idempotency.request_duration.avg_ms", () => Volatile.Read(ref _avgRequestDurationMs));
     }
 
-    public void RecordRequest(bool wasReused)
-    {
-        Interlocked.Increment(ref _handledRequests);
+    public void RegisterRequest() => _totalRequests.Add(1);
 
-        if (wasReused)
-        {
-            Interlocked.Increment(ref _reusedRequests);
-        }
-    }
+    public void RegisterCacheHit() => _cacheHits.Add(1);
 
-    public void UpdateTableSize(long size)
-    {
-        Interlocked.Exchange(ref _tableSize, size);
-    }
+    public void RegisterCacheMiss() => _cacheMisses.Add(1);
 
-    private double CalculateReuseRate()
-    {
-        var total = Interlocked.Read(ref _handledRequests);
-        if (total == 0)
-        {
-            return 0;
-        }
+    public void IncrementInFlight() => Interlocked.Increment(ref _inFlightRequests);
 
-        var reused = Interlocked.Read(ref _reusedRequests);
-        return reused / (double)total;
-    }
+    public void DecrementInFlight() => Interlocked.Decrement(ref _inFlightRequests);
+
+    public void SetAverageRequestDuration(double durationMs)
+        => Volatile.Write(ref _avgRequestDurationMs, durationMs);
 
     public void Dispose()
     {
-        _tableSizeGauge.Dispose();
-        _reuseRateGauge.Dispose();
         _meter.Dispose();
     }
 }

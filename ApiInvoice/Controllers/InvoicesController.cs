@@ -21,7 +21,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResponse<InvoiceResponse>>> GetInvoices(
+    public async Task<ActionResult<PagedResponse<InvoiceListItemResponse>>> GetInvoices(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] InvoiceStatus? status = null)
