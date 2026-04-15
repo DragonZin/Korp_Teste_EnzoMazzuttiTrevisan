@@ -1,0 +1,77 @@
+:host {
+  position: relative;
+  display: inline-flex;
+}
+
+.health-indicator {
+  position: relative;
+}
+
+.health-badge {
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 0;
+  border-radius: 0.2rem;
+  display: inline-block;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.health-badge:focus-visible {
+  outline: 2px solid #0d6efd;
+  outline-offset: 3px;
+}
+
+.health-badge--loading {
+  opacity: 0.7;
+}
+
+.health-panel {
+  position: absolute;
+  top: calc(100% + 0.65rem);
+  right: 0;
+  width: min(22rem, 85vw);
+  background: #fff;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 1050;
+}
+
+.health-panel--open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.health-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  margin-bottom: 0.35rem;
+}
+
+.health-list small {
+  color: #6c757d;
+}
+
+.health-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: #6c757d;
+}
+
+.health-dot--ok {
+  background: #198754;
+}
+
+.health-dot--degraded {
+  background: #ffc107;
+}
+
+.health-dot--down {
+  background: #dc3545;
+}

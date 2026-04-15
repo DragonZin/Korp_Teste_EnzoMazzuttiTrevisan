@@ -6,32 +6,36 @@
         <small class="text-body-secondary">Produtos e notas fiscais</small>
       </div>
 
-            <nav class="nav nav-pills" aria-label="Menu principal">
-        <a
-          class="nav-link"
-          routerLink="/"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Início
-        </a>
-        <a
-          class="nav-link"
-          routerLink="/products"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Produtos
-        </a>
-        <a
-          class="nav-link"
-          routerLink="/invoices"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Notas
-        </a>
-      </nav>
+      <div class="d-flex align-items-center ms-auto gap-3 w-100 justify-content-end">
+        <nav class="nav nav-pills flex-wrap justify-content-end" aria-label="Menu principal">
+          <a
+            class="nav-link"
+            routerLink="/"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            Início
+          </a>
+          <a
+            class="nav-link"
+            routerLink="/products"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            Produtos
+          </a>
+          <a
+            class="nav-link"
+            routerLink="/invoices"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            Notas
+          </a>
+        </nav>
+
+        <app-health-indicator />
+      </div>
     </div>
   </header>
 

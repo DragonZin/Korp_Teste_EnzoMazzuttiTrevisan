@@ -1,0 +1,80 @@
+<div
+  class="health-indicator"
+  (mouseenter)="openPanel()"
+  (mouseleave)="closePanel()"
+  (focusin)="openPanel()"
+  (focusout)="handleFocusOut($event)"
+>
+  <button
+    type="button"
+    class="health-badge"
+    [class.health-badge--loading]="isLoading()"
+    [ngClass]="statusClass(overallStatus())"
+    aria-label="Status geral de saúde do sistema"
+  ></button>
+
+  <section class="health-panel card border-0 shadow" [class.health-panel--open]="isPanelOpen()">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 class="h6 mb-1">Saúde dos serviços</h2>
+          <p class="text-body-secondary small mb-0">Atualizado em {{ lastUpdatedLabel() }}</p>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          (click)="refresh()"
+          [disabled]="isLoading()"
+          aria-label="Atualizar status de saúde"
+        >
+          Atualizar
+        </button>
+      </div>
+
+      <ul class="list-unstyled mb-0 health-list">
+        <li>
+          <span
+            class="health-dot"
+            [ngClass]="statusClass(snapshot()?.productsApi ?? 'down')"
+          ></span>
+          API Produtos
+          <small>{{ statusLabel(snapshot()?.productsApi ?? 'down') }}</small>
+        </li>
+        <li>
+          <span class="health-dot" [ngClass]="statusClass(snapshot()?.productsDb ?? 'down')"></span>
+          Banco Produtos
+          <small>{{ statusLabel(snapshot()?.productsDb ?? 'down') }}</small>
+        </li>
+        <li>
+          <span
+            class="health-dot"
+            [ngClass]="statusClass(snapshot()?.invoicesApi ?? 'down')"
+          ></span>
+          API Notas
+          <small>{{ statusLabel(snapshot()?.invoicesApi ?? 'down') }}</small>
+        </li>
+        <li>
+          <span class="health-dot" [ngClass]="statusClass(snapshot()?.invoicesDb ?? 'down')"></span>
+          Banco Notas
+          <small>{{ statusLabel(snapshot()?.invoicesDb ?? 'down') }}</small>
+        </li>
+      </ul>
+
+      <hr class="my-3" />
+
+      <ul class="list-unstyled mb-0 health-list health-list--summary">
+        <li>
+          <span class="health-dot" [ngClass]="statusClass(productDomainStatus())"></span>
+          Domínio Produtos
+          <small>{{ statusLabel(productDomainStatus()) }}</small>
+        </li>
+        <li>
+          <span class="health-dot" [ngClass]="statusClass(invoiceDomainStatus())"></span>
+          Domínio Notas
+          <small>{{ statusLabel(invoiceDomainStatus()) }}</small>
+        </li>
+      </ul>
+    </div>
+  </section>
+</div>
