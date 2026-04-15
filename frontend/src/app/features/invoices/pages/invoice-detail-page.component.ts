@@ -188,41 +188,14 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
 
             <div class="card border-0 bg-body-tertiary p-3 mt-3 no-print" *ngIf="canManageItems(invoice)">
               <h4 class="h6 mb-3">Adicionar produto</h4>
-              <div class="row g-2 align-items-end">
-                <div class="col-md-8">
-                  <label class="form-label mb-1" for="invoice-add-product">Produto</label>
-                  <select
-                    id="invoice-add-product"
-                    class="form-select"
-                    [value]="selectedProductIdToAdd()"
-                    [disabled]="isAddingProduct() || isLoadingProductsCatalog()"
-                    (change)="selectedProductIdToAdd.set(($any($event.target)).value)"
-                  >
-                    <option value="">Selecione um produto</option>
-                    <option *ngFor="let product of productsCatalog()" [value]="product.id">
-                      {{ product.code }} - {{ product.name }}
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label mb-1">Quantidade</label>
-                  <app-quantity-stepper
-                    [value]="quantityToAdd()"
-                    [min]="1"
-                    [disabled]="isAddingProduct()"
-                    inputAriaLabel="Quantidade do produto para adicionar"
-                    (commit)="commitAddQuantity($event)"
-                  />
-                </div>
-              </div>
-              <div class="d-flex justify-content-end mt-3">
+              <div class="d-flex justify-content-end">
                 <button
                   type="button"
                   class="btn btn-primary"
-                  (click)="addSelectedProduct()"
-                  [disabled]="isAddingProduct() || isLoadingProductsCatalog()"
+                  (click)="openAddProductModal()"
+                  [disabled]="isAddingProduct()"
                 >
-                  {{ isAddingProduct() ? 'Adicionando...' : 'Adicionar produto' }}
+                  Adicionar produto
                 </button>
               </div>
             </div>
@@ -235,6 +208,119 @@ import { QuantityStepperComponent } from '../components/quantity-stepper.compone
 
       </div>
     </section>
+    <div *ngIf="isAddProductModalOpen()" class="overlay no-print" (click)="closeAddProductModal()" aria-hidden="true">
+      <div
+        class="modal-container p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invoice-add-product-modal-title"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h3 id="invoice-add-product-modal-title" class="h5 mb-1">Adicionar produto</h3>
+            <p class="text-body-secondary mb-0">Selecione um item do catálogo para incluir na nota fiscal.</p>
+          </div>
+          <button type="button" class="btn-close" aria-label="Fechar modal" (click)="closeAddProductModal()"></button>
+        </div>
+
+        <div *ngIf="isLoadingProductsCatalog()" class="small text-body-secondary mb-2">Carregando catálogo...</div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Nome</th>
+                <th class="text-end">Estoque</th>
+                <th class="text-end">Qtd. disponível</th>
+                <th class="text-end">Preço</th>
+                <th class="text-end">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let product of productsCatalog()">
+                <td>{{ product.code }}</td>
+                <td>{{ product.name }}</td>
+                <td class="text-end">{{ product.stock }}</td>
+                <td class="text-end">{{ product.availableQuantity }}</td>
+                <td class="text-end">{{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</td>
+                <td class="text-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    (click)="selectProductToAdd(product)"
+                    [disabled]="isAddingProduct()"
+                  >
+                    Selecionar
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!isLoadingProductsCatalog() && productsCatalog().length === 0">
+                <td colspan="6" class="text-center text-body-secondary py-4">Nenhum produto disponível no catálogo.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+          <div class="small text-body-secondary">
+            Página {{ catalogPage() }} de {{ catalogTotalPages() || 1 }} · {{ catalogTotalItems() }} itens
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <label class="small text-body-secondary" for="catalog-page-size">Itens por página</label>
+            <select
+              id="catalog-page-size"
+              class="form-select form-select-sm page-size-select"
+              [value]="catalogPageSize()"
+              [disabled]="isLoadingProductsCatalog()"
+              (change)="onCatalogPageSizeChange(($any($event.target)).value)"
+            >
+              <option [value]="10">10</option>
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+            </select>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              (click)="goToPreviousCatalogPage()"
+              [disabled]="!canGoToPreviousCatalogPage()"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              (click)="goToNextCatalogPage()"
+              [disabled]="!canGoToNextCatalogPage()"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="selectedProductIdToAdd()" class="modal-confirmation border-top mt-3 pt-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <p class="mb-1 fw-semibold">Produto selecionado: {{ getSelectedCatalogProductLabel() }}</p>
+              <p class="text-body-secondary mb-0 small">Defina a quantidade e confirme a adição.</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+              <app-quantity-stepper
+                [value]="quantityToAdd()"
+                [min]="1"
+                [disabled]="isAddingProduct()"
+                inputAriaLabel="Quantidade do produto para adicionar"
+                (commit)="commitAddQuantity($event)"
+              />
+              <button type="button" class="btn btn-primary" (click)="addSelectedProduct()" [disabled]="isAddingProduct()">
+                {{ isAddingProduct() ? 'Adicionando...' : 'Confirmar adição' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   `,
   styleUrl: './invoice-detail-page.component.scss',
 })
@@ -261,6 +347,12 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly productsCatalog = signal<Product[]>([]);
   protected readonly isLoadingProductsCatalog = signal(false);
   protected readonly selectedProductIdToAdd = signal('');
+  protected readonly isAddProductModalOpen = signal(false);
+  protected readonly catalogPage = signal(1);
+  protected readonly catalogPageSize = signal(10);
+  protected readonly catalogTotalItems = signal(0);
+  protected readonly catalogTotalPages = signal(0);
+  protected readonly catalogSearchTerm = signal('');
   protected readonly quantityToAdd = signal(1);
   protected readonly editableItemQuantities = signal<Partial<Record<string, number>>>({});
   protected readonly isAddingProduct = signal(false);
@@ -278,7 +370,6 @@ export class InvoiceDetailPageComponent implements OnInit {
       return;
     }
 
-    this.loadProductsCatalog();
     this.loadInvoice(id);
   }
 
@@ -459,6 +550,78 @@ export class InvoiceDetailPageComponent implements OnInit {
     this.quantityToAdd.set(normalizedQuantity);
   }
 
+  protected openAddProductModal(): void {
+    if (this.isAddingProduct()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.selectedProductIdToAdd.set('');
+    this.quantityToAdd.set(1);
+    this.isAddProductModalOpen.set(true);
+    this.loadProductsCatalog();
+  }
+
+  protected closeAddProductModal(): void {
+    if (this.isAddingProduct()) {
+      return;
+    }
+
+    this.clearAddProductSelection();
+    this.isAddProductModalOpen.set(false);
+  }
+
+  protected selectProductToAdd(product: Product): void {
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.selectedProductIdToAdd.set(product.id);
+    this.quantityToAdd.set(1);
+  }
+
+  protected getSelectedCatalogProductLabel(): string {
+    const selectedProduct = this.productsCatalog().find((product) => product.id === this.selectedProductIdToAdd());
+    if (!selectedProduct) {
+      return 'Produto indisponível';
+    }
+
+    return `${selectedProduct.code} - ${selectedProduct.name}`;
+  }
+
+  protected goToPreviousCatalogPage(): void {
+    if (!this.canGoToPreviousCatalogPage()) {
+      return;
+    }
+
+    this.loadProductsCatalog(this.catalogPage() - 1, this.catalogPageSize());
+  }
+
+  protected goToNextCatalogPage(): void {
+    if (!this.canGoToNextCatalogPage()) {
+      return;
+    }
+
+    this.loadProductsCatalog(this.catalogPage() + 1, this.catalogPageSize());
+  }
+
+  protected canGoToPreviousCatalogPage(): boolean {
+    return !this.isLoadingProductsCatalog() && this.catalogPage() > 1;
+  }
+
+  protected canGoToNextCatalogPage(): boolean {
+    return !this.isLoadingProductsCatalog() && this.catalogPage() < this.catalogTotalPages();
+  }
+
+  protected onCatalogPageSizeChange(rawValue: string | number): void {
+    const parsedPageSize = Number(rawValue);
+    if (!Number.isInteger(parsedPageSize) || parsedPageSize < 1) {
+      return;
+    }
+
+    this.catalogPageSize.set(parsedPageSize);
+    this.loadProductsCatalog(1, parsedPageSize);
+  }
+
   protected addSelectedProduct(): void {
     const invoice = this.invoice();
 
@@ -503,8 +666,8 @@ export class InvoiceDetailPageComponent implements OnInit {
       .subscribe({
         next: (updatedInvoice) => {
           this.handleInvoiceUpdated(updatedInvoice);
-          this.quantityToAdd.set(1);
-          this.selectedProductIdToAdd.set('');
+          this.clearAddProductSelection();
+          this.isAddProductModalOpen.set(false);
           this.successMessage.set('Produto adicionado à nota fiscal com sucesso.');
         },
         error: (error: HttpErrorResponse) => {
@@ -648,18 +811,24 @@ export class InvoiceDetailPageComponent implements OnInit {
     });
   }
 
-  private loadProductsCatalog(): void {
+  private loadProductsCatalog(page = this.catalogPage(), pageSize = this.catalogPageSize()): void {
     this.isLoadingProductsCatalog.set(true);
 
     this.productsApiService
-      .list(1, 250)
+      .list(page, pageSize)
       .pipe(finalize(() => this.isLoadingProductsCatalog.set(false)))
       .subscribe({
         next: (response) => {
           this.productsCatalog.set(response.items);
+          this.catalogPage.set(response.page);
+          this.catalogPageSize.set(response.pageSize);
+          this.catalogTotalItems.set(response.totalItems);
+          this.catalogTotalPages.set(response.totalPages);
         },
         error: () => {
           this.productsCatalog.set([]);
+          this.catalogTotalItems.set(0);
+          this.catalogTotalPages.set(0);
         }
       });
   }
@@ -728,6 +897,12 @@ export class InvoiceDetailPageComponent implements OnInit {
     }
 
     return parsedValue;
+  }
+
+  private clearAddProductSelection(): void {
+    this.selectedProductIdToAdd.set('');
+    this.quantityToAdd.set(1);
+    this.errorMessage.set(null);
   }
   
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
