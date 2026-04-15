@@ -19,7 +19,7 @@ import { Invoice } from '../models/invoice.model';
             <h2 class="h5 mb-1">Detalhe da nota #{{ invoiceId() }}</h2>
             <p class="text-body-secondary mb-0">Visualização e edição da nota fiscal.</p>
           </div>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar para notas</button>
         </div>
 
         <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
@@ -94,11 +94,6 @@ import { Invoice } from '../models/invoice.model';
               </tbody>
             </table>
           </div>
-
-          <div class="d-flex justify-content-end">
-            <button type="button" class="btn btn-outline-secondary" (click)="goBack()">Voltar para notas</button>
-          </div>
-        </ng-container>
 
         <p *ngIf="!isLoading() && !invoice() && !errorMessage()" class="text-body-secondary mb-0">
           Nenhuma nota fiscal encontrada para o identificador informado.

@@ -46,6 +46,9 @@ import { Invoice } from '../models/invoice.model';
         <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
           {{ error }}
         </div>
+        <div *ngIf="successMessage() as success" class="alert alert-success" role="status">
+          {{ success }}
+        </div>
 
         <div
           *ngIf="isLoading()"
@@ -56,36 +59,80 @@ import { Invoice } from '../models/invoice.model';
           <span>Carregando notas fiscais...</span>
         </div>
 
-        <ul class="list-group list-group-flush">
-          <li *ngFor="let invoice of invoices()" class="list-group-item d-flex justify-content-between align-items-center px-0">
-            <div class="me-2">
-              <strong>NF-{{ invoice.number }}</strong>
-              <p class="mb-0 text-body-secondary">
-                <span class="badge" [class.bg-success]="invoice.status === 1" [class.bg-secondary]="invoice.status === 2">
-                  {{ getStatusLabel(invoice.status) }}
-                </span> •
-                {{ invoice.customerName }} •
-                {{ getInvoiceDate(invoice) }}
-              </p>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-outline-primary btn-sm" [routerLink]="['/invoices', invoice.id]">Detalhar</a>
-              <button
-                type="button"
-                class="btn btn-outline-danger btn-sm"
-                (click)="deleteInvoice(invoice)"
-                [disabled]="isLoading() || deletingInvoiceId() === invoice.id"
-              >
-                {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
-              </button>
-            </div>
-          </li>
+        <div class="card border-0 bg-body-tertiary">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 invoice-table">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col">Número</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Data</th>
+                  <th scope="col" class="text-end">Total</th>
+                  <th scope="col" class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let invoice of invoices()">
+                  <td data-label="Número">
+                    <span class="fw-semibold">NF-{{ invoice.number }}</span>
+                  </td>
+                  <td data-label="Cliente">{{ invoice.customerName }}</td>
+                  <td data-label="Status">
+                    <span class="badge rounded-pill invoice-status-badge" [ngClass]="getStatusBadgeClass(invoice.status)">
+                      {{ getStatusLabel(invoice.status) }}
+                    </span>
+                  </td>
+                  <td data-label="Data">{{ getInvoiceDate(invoice) | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td data-label="Total" class="text-end fw-semibold">{{ invoice.totalAmount | currency: 'BRL':'symbol':'1.2-2' }}</td>
+                  <td data-label="Ações">
+                    <div class="d-flex justify-content-end flex-wrap gap-2">
+                      <a
+                        class="btn btn-outline-primary btn-sm"
+                        [routerLink]="['/invoices', invoice.id]"
+                        [class.disabled]="isActionInProgress(invoice.id)"
+                        [attr.aria-disabled]="isActionInProgress(invoice.id)"
+                      >
+                        Editar
+                      </a>
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger btn-sm"
+                        (click)="deleteInvoice(invoice)"
+                        [disabled]="isActionInProgress(invoice.id)"
+                      >
+                        {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-success btn-sm"
+                        (click)="closeInvoice(invoice)"
+                        [disabled]="invoice.status === 2 || isActionInProgress(invoice.id)"
+                      >
+                        {{ closingInvoiceId() === invoice.id ? 'Fechando...' : 'Fechar nota' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        [disabled]="isActionInProgress(invoice.id)"
+                        aria-label="Imprimir nota fiscal"
+                      >
+                        Imprimir
+                      </button>
+                    </div>
+                  </td>
+                </tr>
 
-          <li *ngIf="!isLoading() && invoices().length === 0" class="list-group-item px-0 py-4 text-center">
-            <p class="mb-1 fw-semibold">Nenhuma nota encontrada</p>
-            <p class="mb-0 text-body-secondary">Ajuste os filtros ou recarregue a lista.</p>
-          </li>
-        </ul>
+                <tr *ngIf="!isLoading() && invoices().length === 0">
+                  <td colspan="6" class="py-4 text-center">
+                    <p class="mb-1 fw-semibold">Nenhuma nota encontrada</p>
+                    <p class="mb-0 text-body-secondary">Ajuste os filtros ou recarregue a lista.</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         <app-pagination-controls
           [currentItemCount]="invoices().length"
@@ -103,7 +150,58 @@ import { Invoice } from '../models/invoice.model';
         />
       </div>
     </section>
-  `
+  `,
+  styles: [`
+    .invoice-status-badge {
+      min-width: 5.5rem;
+      font-weight: 600;
+    }
+
+    .invoice-status-open {
+      background-color: var(--bs-success-bg-subtle);
+      color: var(--bs-success-text-emphasis);
+    }
+
+    .invoice-status-closed {
+      background-color: var(--bs-secondary-bg-subtle);
+      color: var(--bs-secondary-text-emphasis);
+    }
+
+    @media (max-width: 767.98px) {
+      .invoice-table thead {
+        display: none;
+      }
+
+      .invoice-table,
+      .invoice-table tbody,
+      .invoice-table tr,
+      .invoice-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .invoice-table tr {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--bs-border-color);
+      }
+
+      .invoice-table td {
+        border: 0;
+        padding: 0.35rem 0;
+        text-align: left !important;
+      }
+
+      .invoice-table td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--bs-secondary-color);
+        margin-bottom: 0.15rem;
+      }
+    }
+  `]
 })
 export class InvoicesPageComponent implements OnInit {
   private readonly invoicesApiService = inject(InvoicesApiService);
@@ -118,6 +216,8 @@ export class InvoicesPageComponent implements OnInit {
   readonly totalPages = signal(0);
   readonly selectedStatus = signal<'1' | '2' | ''>('');
   readonly deletingInvoiceId = signal<string | null>(null);
+  readonly closingInvoiceId = signal<string | null>(null);
+  readonly successMessage = signal<string | null>(null);
 
   ngOnInit(): void {
     this.loadInvoices();
@@ -185,6 +285,7 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     this.errorMessage.set(null);
+    this.successMessage.set(null);
     this.deletingInvoiceId.set(invoice.id);
 
     this.invoicesApiService
@@ -192,6 +293,7 @@ export class InvoicesPageComponent implements OnInit {
       .pipe(finalize(() => this.deletingInvoiceId.set(null)))
       .subscribe({
         next: () => {
+          this.successMessage.set(`Nota NF-${invoice.number} excluída com sucesso.`);
           this.loadInvoices(this.page());
         },
         error: (error: HttpErrorResponse) => {
@@ -200,13 +302,44 @@ export class InvoicesPageComponent implements OnInit {
       });
   }
 
+  closeInvoice(invoice: Invoice): void {
+    if (invoice.status === 2) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.closingInvoiceId.set(invoice.id);
+
+    this.invoicesApiService
+      .close(invoice.id)
+      .pipe(finalize(() => this.closingInvoiceId.set(null)))
+      .subscribe({
+        next: () => {
+          this.successMessage.set(`Nota NF-${invoice.number} fechada com sucesso.`);
+          this.loadInvoices(this.page());
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(`Não foi possível fechar a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
+        }
+      });
+  }
+
+  isActionInProgress(invoiceId: string): boolean {
+    return this.deletingInvoiceId() === invoiceId || this.closingInvoiceId() === invoiceId;
+  }
+
+  getStatusBadgeClass(status: number): 'invoice-status-open' | 'invoice-status-closed' {
+    return status === 2 ? 'invoice-status-closed' : 'invoice-status-open';
+  }
+
   getStatusLabel(status: number): 'Open' | 'Closed' {
     return status === 2 ? 'Closed' : 'Open';
   }
 
-  getInvoiceDate(invoice: Invoice): string {
+  getInvoiceDate(invoice: Invoice): Date {
     const dateToFormat = invoice.status === 2 && invoice.closedAt ? invoice.closedAt : invoice.createdAt;
-    return new Date(dateToFormat).toLocaleString();
+    return new Date(dateToFormat);
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {
