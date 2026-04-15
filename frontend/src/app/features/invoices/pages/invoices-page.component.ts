@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { PagedResponse } from '../../../core/models/paged-response.model';
@@ -99,6 +99,7 @@ import { Invoice } from '../models/invoice.model';
                         type="button"
                         class="btn btn-outline-danger btn-sm"
                         (click)="deleteInvoice(invoice)"
+                        (click)="printInvoice(invoice)"
                         [disabled]="isActionInProgress(invoice.id)"
                       >
                         {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
@@ -205,6 +206,7 @@ import { Invoice } from '../models/invoice.model';
 })
 export class InvoicesPageComponent implements OnInit {
   private readonly invoicesApiService = inject(InvoicesApiService);
+  private readonly router = inject(Router);
 
   readonly invoices = signal<Invoice[]>([]);
   readonly isLoading = signal(false);
@@ -341,6 +343,12 @@ export class InvoicesPageComponent implements OnInit {
   getInvoiceDate(invoice: Invoice): Date {
     const dateToFormat = invoice.status === 2 && invoice.closedAt ? invoice.closedAt : invoice.createdAt;
     return new Date(dateToFormat);
+  }
+  
+  printInvoice(invoice: Invoice): void {
+    void this.router.navigate(['/invoices', invoice.id], {
+      queryParams: { autoPrint: '1' }
+    });
   }
 
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {

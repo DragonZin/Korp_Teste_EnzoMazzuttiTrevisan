@@ -15,12 +15,15 @@ import { ProductsApiService } from '../../products/data/products-api.service';
   template: `
     <section class="card border-0 shadow-sm">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4 no-print">
           <div>
-            <h2 class="h5 mb-1">Detalhe da nota NF-{{ invoice()?.number }}</h2>            
+            <h2 class="h5 mb-1">Detalhe da nota NF-{{ invoice()?.number }}</h2>
             <p class="text-body-secondary mb-0">Visualização e edição da nota fiscal.</p>
           </div>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar para notas</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="printDetails()">Imprimir detalhes</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar para notas</button>
+          </div>
         </div>
 
         <div *ngIf="errorMessage() as error" class="alert alert-danger" role="alert">
@@ -37,6 +40,7 @@ import { ProductsApiService } from '../../products/data/products-api.service';
         </div>
 
         <ng-container *ngIf="invoice() as invoice">
+          <div class="invoice-print-area">
           <div class="row g-3 mb-4">
             <div class="col-md-4">
               <label class="form-label">Cliente</label>
@@ -98,6 +102,7 @@ import { ProductsApiService } from '../../products/data/products-api.service';
               </tbody>
             </table>
           </div>
+          </div>
         </ng-container>
 
         <p *ngIf="!isLoading() && !invoice() && !errorMessage()" class="text-body-secondary mb-0">
@@ -106,7 +111,18 @@ import { ProductsApiService } from '../../products/data/products-api.service';
 
       </div>
     </section>
-  `
+  `,
+  styles: [`
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+
+      .invoice-print-area {
+        margin: 0;
+      }
+    }
+  `]
 })
 export class InvoiceDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -119,9 +135,11 @@ export class InvoiceDetailPageComponent implements OnInit {
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly productNamesById = signal<Record<string, string>>({});
+  private shouldAutoPrint = false;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
+    this.shouldAutoPrint = this.route.snapshot.queryParamMap.get('autoPrint') === '1';
     this.invoiceId.set(id);
 
     if (!id) {
@@ -134,6 +152,10 @@ export class InvoiceDetailPageComponent implements OnInit {
 
   protected goBack(): void {
     void this.router.navigate(['/invoices']);
+  }
+
+  protected printDetails(): void {
+    window.print();
   }
 
   protected getStatusLabel(status: number): 'Open' | 'Closed' {
@@ -151,6 +173,11 @@ export class InvoiceDetailPageComponent implements OnInit {
         next: (invoice: Invoice) => {
           this.invoice.set(invoice);
           this.loadProductNames(invoice);
+
+          if (this.shouldAutoPrint) {
+            this.shouldAutoPrint = false;
+            setTimeout(() => this.printDetails(), 150);
+          }
         },
         error: (error: HttpErrorResponse) => {
           this.invoice.set(null);
