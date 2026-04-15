@@ -11,7 +11,10 @@
     [class.health-badge--loading]="isLoading()"
     [ngClass]="statusClass(overallStatus())"
     aria-label="Status geral de saúde do sistema"
-  ></button>
+  >
+    <span aria-hidden="true">🩺</span>
+    <span>Saúde</span>
+  </button>
 
   <section class="health-panel card border-0 shadow" [class.health-panel--open]="isPanelOpen()">
     <div class="card-body">
@@ -63,18 +66,9 @@
 
       <hr class="my-3" />
 
-      <ul class="list-unstyled mb-0 health-list health-list--summary">
-        <li>
-          <span class="health-dot" [ngClass]="statusClass(productDomainStatus())"></span>
-          Domínio Produtos
-          <small>{{ statusLabel(productDomainStatus()) }}</small>
-        </li>
-        <li>
-          <span class="health-dot" [ngClass]="statusClass(invoiceDomainStatus())"></span>
-          Domínio Notas
-          <small>{{ statusLabel(invoiceDomainStatus()) }}</small>
-        </li>
-      </ul>
+     <p class="mb-0 small text-body-secondary">
+        Monitoramento da API e do banco para Produtos e Notas.
+      </p>
     </div>
   </section>
 </div>

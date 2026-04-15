@@ -17,32 +17,13 @@ import {
 })
 export class HealthIndicatorComponent {
   private readonly healthStatusService = inject(HealthStatusService);
+  private closePanelTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   readonly isPanelOpen = signal(false);
   readonly isLoading = signal(false);
   readonly snapshot = signal<HealthStatusSnapshot | null>(null);
 
   readonly overallStatus = computed<HealthLevel>(() => this.snapshot()?.overall ?? 'down');
-
-  readonly productDomainStatus = computed<HealthLevel>(() => {
-    const current = this.snapshot();
-
-    if (!current) {
-      return 'down';
-    }
-
-    return this.aggregateDomainStatus(current.productsApi, current.productsDb);
-  });
-
-  readonly invoiceDomainStatus = computed<HealthLevel>(() => {
-    const current = this.snapshot();
-
-    if (!current) {
-      return 'down';
-    }
-
-    return this.aggregateDomainStatus(current.invoicesApi, current.invoicesDb);
-  });
 
   readonly lastUpdatedLabel = computed(() => {
     const current = this.snapshot();
@@ -70,11 +51,15 @@ export class HealthIndicatorComponent {
   }
 
   openPanel(): void {
+    this.clearClosePanelTimeout();
     this.isPanelOpen.set(true);
   }
 
   closePanel(): void {
-    this.isPanelOpen.set(false);
+    this.closePanelTimeoutId = setTimeout(() => {
+      this.isPanelOpen.set(false);
+      this.closePanelTimeoutId = null;
+    }, 180);
   }
 
   handleFocusOut(event: FocusEvent): void {
@@ -107,15 +92,10 @@ export class HealthIndicatorComponent {
     return `health-dot--${status}`;
   }
 
-  private aggregateDomainStatus(apiStatus: HealthLevel, dbStatus: HealthLevel): HealthLevel {
-    if (apiStatus === 'down' && dbStatus === 'down') {
-      return 'down';
+  private clearClosePanelTimeout(): void {
+    if (this.closePanelTimeoutId) {
+      clearTimeout(this.closePanelTimeoutId);
+      this.closePanelTimeoutId = null;
     }
-
-    if (apiStatus === 'ok' && dbStatus === 'ok') {
-      return 'ok';
-    }
-
-    return 'degraded';
   }
 }
