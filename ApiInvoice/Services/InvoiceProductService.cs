@@ -16,12 +16,18 @@ public class InvoiceProductService : IInvoiceProductService
     private readonly AppDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IInvoiceService _invoiceService;
+    private readonly ILogger<InvoiceProductService> _logger;
 
-    public InvoiceProductService(AppDbContext context, IHttpClientFactory httpClientFactory, IInvoiceService invoiceService)
+    public InvoiceProductService(
+        AppDbContext context,
+        IHttpClientFactory httpClientFactory,
+        IInvoiceService invoiceService,
+        ILogger<InvoiceProductService> logger)
     {
         _context = context;
         _httpClientFactory = httpClientFactory;
         _invoiceService = invoiceService;
+        _logger = logger;
     }
 
     public async Task<InvoiceResponse> UpsertInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request)
@@ -103,7 +109,15 @@ public class InvoiceProductService : IInvoiceProductService
         }
         catch
         {
-            await CompensateReservationAdjustmentsAsync(appliedReservationAdjustments);
+            var compensationFailures = await CompensateReservationAdjustmentsAsync(invoiceId, appliedReservationAdjustments);
+
+            if (compensationFailures.Count > 0)
+            {
+                throw new ValidationException(
+                    $"Falha crítica ao compensar ajustes de reserva da nota {invoiceId}. " +
+                    "Estado parcial inconsistente detectado; realize intervenção/reprocessamento antes de novas operações.");
+            }
+
             throw;
         }
 
@@ -156,7 +170,15 @@ public class InvoiceProductService : IInvoiceProductService
         }
         catch
         {
-            await CompensateReservationAdjustmentsAsync(appliedReservationAdjustments);
+            var compensationFailures = await CompensateReservationAdjustmentsAsync(invoiceId, appliedReservationAdjustments);
+
+            if (compensationFailures.Count > 0)
+            {
+                throw new ValidationException(
+                    $"Falha crítica ao compensar ajustes de reserva da nota {invoiceId}. " +
+                    "Estado parcial inconsistente detectado; realize intervenção/reprocessamento antes de novas operações.");
+            }
+
             throw;
         }
     }
@@ -193,27 +215,41 @@ public class InvoiceProductService : IInvoiceProductService
         }
     }
 
-    private async Task CompensateReservationAdjustmentsAsync(List<(Guid ProductId, int ReservedStockDelta)> appliedAdjustments)
+    private async Task<List<(Guid ProductId, int ReservedStockDelta)>> CompensateReservationAdjustmentsAsync(
+        Guid invoiceId,
+        List<(Guid ProductId, int ReservedStockDelta)> appliedAdjustments)
     {
+        var failedCompensations = new List<(Guid ProductId, int ReservedStockDelta)>();
+
         for (var i = appliedAdjustments.Count - 1; i >= 0; i--)
         {
             var appliedAdjustment = appliedAdjustments[i];
+            var compensationReservedDelta = -appliedAdjustment.ReservedStockDelta;
 
             try
             {
                 await AdjustProductReservationAsync(
                     appliedAdjustment.ProductId,
-                    reservedStockDelta: -appliedAdjustment.ReservedStockDelta,
+                    reservedStockDelta: compensationReservedDelta,
                     idempotencyKey: BuildReservationCompensationIdempotencyKey(
                         appliedAdjustment.ProductId,
-                        -appliedAdjustment.ReservedStockDelta,
+                        compensationReservedDelta,
                         i));
             }
-            catch
+            catch (Exception ex)
             {
-                // Melhor esforço de compensação síncrona.
+                failedCompensations.Add((appliedAdjustment.ProductId, compensationReservedDelta));
+                _logger.LogError(
+                    ex,
+                    "Falha na compensação de reserva. InvoiceId={InvoiceId}, ProductId={ProductId}, ReservedStockDelta={ReservedStockDelta}, CompensationIndex={CompensationIndex}.",
+                    invoiceId,
+                    appliedAdjustment.ProductId,
+                    compensationReservedDelta,
+                    i);
             }
         }
+
+        return failedCompensations;
     }
 
     private static string BuildReservationAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int reservedStockDelta)

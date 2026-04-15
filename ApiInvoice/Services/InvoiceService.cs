@@ -17,11 +17,16 @@ public class InvoiceService : IInvoiceService
     private const string IdempotencyHeader = "Idempotency-Key";
     private readonly AppDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<InvoiceService> _logger;
 
-    public InvoiceService(AppDbContext context, IHttpClientFactory httpClientFactory)
+    public InvoiceService(
+        AppDbContext context,
+        IHttpClientFactory httpClientFactory,
+        ILogger<InvoiceService> logger)
     {
         _context = context;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
 
     public async Task<PagedResponse<InvoiceResponse>> GetInvoicesAsync(int page, int pageSize, InvoiceStatus? status)
@@ -177,7 +182,15 @@ public class InvoiceService : IInvoiceService
             }
             catch (Exception)
             {
-                await CompensateInventoryAdjustmentsAsync(appliedAdjustments);
+                var compensationFailures = await CompensateInventoryAdjustmentsAsync(id, appliedAdjustments);
+
+                if (compensationFailures.Count > 0)
+                {
+                    throw new ValidationException(
+                        $"Falha crítica ao compensar ajustes de estoque da nota {id}. " +
+                        "Estado parcial inconsistente detectado; realize intervenção/reprocessamento antes de novas operações.");
+                }
+
                 throw new ValidationException("Não foi possível concluir o fechamento da nota fiscal. As baixas de estoque aplicadas foram compensadas.");
             }
         }
@@ -235,7 +248,15 @@ public class InvoiceService : IInvoiceService
         }
         catch
         {
-            await CompensateInventoryAdjustmentsAsync(appliedAdjustments);
+            var compensationFailures = await CompensateInventoryAdjustmentsAsync(id, appliedAdjustments);
+
+            if (compensationFailures.Count > 0)
+            {
+                throw new ValidationException(
+                    $"Falha crítica ao compensar ajustes de estoque da nota {id}. " +
+                    "Estado parcial inconsistente detectado; realize intervenção/reprocessamento antes de novas operações.");
+            }
+
             throw new ValidationException("Não foi possível excluir a nota fiscal. As reservas de estoque aplicadas foram compensadas.");
         }
     }
@@ -301,30 +322,45 @@ public class InvoiceService : IInvoiceService
         }
     }
     
-    private async Task CompensateInventoryAdjustmentsAsync(
+    private async Task<List<(Guid ProductId, int StockDelta, int ReservedStockDelta)>> CompensateInventoryAdjustmentsAsync(
+        Guid invoiceId,
         List<(Guid ProductId, int StockDelta, int ReservedStockDelta)> appliedAdjustments)
     {
+        var failedCompensations = new List<(Guid ProductId, int StockDelta, int ReservedStockDelta)>();
+
         for (var i = appliedAdjustments.Count - 1; i >= 0; i--)
         {
             var appliedAdjustment = appliedAdjustments[i];
+            var compensationStockDelta = -appliedAdjustment.StockDelta;
+            var compensationReservedStockDelta = -appliedAdjustment.ReservedStockDelta;
 
             try
             {
                 await AdjustProductInventoryAsync(
                     appliedAdjustment.ProductId,
-                    stockDelta: -appliedAdjustment.StockDelta,
-                    reservedStockDelta: -appliedAdjustment.ReservedStockDelta,
+                    stockDelta: compensationStockDelta,
+                    reservedStockDelta: compensationReservedStockDelta,
                     idempotencyKey: BuildInventoryCompensationIdempotencyKey(
                         appliedAdjustment.ProductId,
-                        -appliedAdjustment.StockDelta,
-                        -appliedAdjustment.ReservedStockDelta,
+                        compensationStockDelta,
+                        compensationReservedStockDelta,
                         i));
             }
-            catch
+            catch (Exception ex)
             {
-                // Melhor esforço de compensação síncrona.
+                failedCompensations.Add((appliedAdjustment.ProductId, compensationStockDelta, compensationReservedStockDelta));
+                _logger.LogError(
+                    ex,
+                    "Falha na compensação de estoque. InvoiceId={InvoiceId}, ProductId={ProductId}, StockDelta={StockDelta}, ReservedStockDelta={ReservedStockDelta}, CompensationIndex={CompensationIndex}.",
+                    invoiceId,
+                    appliedAdjustment.ProductId,
+                    compensationStockDelta,
+                    compensationReservedStockDelta,
+                    i);
             }
         }
+
+        return failedCompensations;
     }
 
     private static string BuildInventoryAdjustmentIdempotencyKey(
