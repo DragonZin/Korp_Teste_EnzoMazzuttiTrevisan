@@ -281,7 +281,8 @@ export class InvoicesPageComponent implements OnInit {
     if (this.isCreatingInvoice()) {
       return;
     }
-
+    
+    this.isCreateModalOpen.set(false);
     this.clearCreateErrors();
     this.createFieldErrors.set({});
   }
@@ -384,9 +385,7 @@ export class InvoicesPageComponent implements OnInit {
   }
 
   printInvoice(invoice: Invoice): void {
-    void this.router.navigate(['/invoices', invoice.id], {
-      queryParams: { autoPrint: '1' }
-    });
+    void this.router.navigate(['/invoices', invoice.id, 'print']);
   }
   
   private getFriendlyErrorMessage(error: HttpErrorResponse): string {

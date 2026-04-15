@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 import { HomePageComponent } from './features/home/pages/home-page.component';
 import { InvoiceDetailPageComponent } from './features/invoices/pages/invoice-detail-page.component';
+import { InvoicePrintPageComponent } from './features/invoices/pages/invoice-print-page.component';
 import { InvoicesPageComponent } from './features/invoices/pages/invoices-page.component';
 import { ProductsPageComponent } from './features/products/pages/products-page.component';
 
@@ -21,6 +22,10 @@ export const routes: Routes = [
   {
     path: 'invoices/:id',
     component: InvoiceDetailPageComponent
+  },
+  {
+    path: 'invoices/:id/print',
+    component: InvoicePrintPageComponent
   },
   {
     path: '**',

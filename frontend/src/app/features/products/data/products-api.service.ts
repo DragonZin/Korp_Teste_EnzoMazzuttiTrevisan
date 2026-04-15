@@ -6,12 +6,8 @@ import { API_CONFIG } from '../../../core/api/api.config';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { withIdempotencyKey } from '../../../core/http/idempotency.interceptor';
 import { CreateProductRequest } from '../models/create-product-request.model';
-import { Product } from '../models/product.model';
+import { Product, ProductApiResponse } from '../models/product.model';
 import { UpdateProductRequest } from '../models/update-product-request.model';
-
-type ProductApiResponse = Omit<Product, 'availableQuantity'> & {
-  availableQuantity?: number;
-};
 
 type GetProductsByIdsRequest = {
   ids: string[];
@@ -66,8 +62,16 @@ export class ProductsApiService {
   }
 
   private normalizeProduct(product: ProductApiResponse): Product {
+    const parsedPrice =
+      typeof product.price === 'string'
+        ? Number(product.price.replace(',', '.'))
+        : product.price;
+
+    const normalizedPrice = Number.isFinite(parsedPrice) ? Number(parsedPrice) : 0;
+
     return {
       ...product,
+      price: normalizedPrice,
       availableQuantity: product.availableQuantity ?? product.stock,
     };
   }

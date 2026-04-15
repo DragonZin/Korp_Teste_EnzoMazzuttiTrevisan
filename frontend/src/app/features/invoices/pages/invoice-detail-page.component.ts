@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -29,7 +29,6 @@ import { ProductsApiService } from '../../products/data/products-api.service';
             >
               {{ isClosingInvoice() ? 'Fechando...' : 'Fechar nota' }}
             </button>
-            <button type="button" class="btn btn-outline-primary btn-sm" (click)="printDetails()">Imprimir</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">Voltar para notas</button>
           </div>
         </div>
@@ -172,7 +171,7 @@ import { ProductsApiService } from '../../products/data/products-api.service';
   `,
   styleUrl: './invoice-detail-page.component.scss',
 })
-export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
+export class InvoiceDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly invoicesApiService = inject(InvoicesApiService);
@@ -191,12 +190,10 @@ export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
   protected readonly editedCustomerDocument = signal('');
   protected readonly isUpdatingCustomerDocument = signal(false);
   protected readonly isClosingInvoice = signal(false);
-  private shouldAutoPrint = false;
   private readonly customerDocumentPattern = /^(\d{11}|\d{14}|\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})$/;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
-    this.shouldAutoPrint = this.route.snapshot.queryParamMap.get('autoPrint') === '1';
     this.invoiceId.set(id);
 
     if (!id) {
@@ -207,22 +204,8 @@ export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
     this.loadInvoice(id);
   }
 
-  ngOnDestroy(): void {
-    this.disablePrintMode();
-  }
-
   protected goBack(): void {
     void this.router.navigate(['/invoices']);
-  }
-
-  protected printDetails(): void {
-    if (!this.invoice()) {
-      return;
-    }
-
-    this.enablePrintMode();
-    window.addEventListener('afterprint', () => this.disablePrintMode(), { once: true });
-    window.print();
   }
 
   protected closeInvoice(): void {
@@ -388,10 +371,6 @@ export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
           this.editedCustomerDocument.set(invoice.customerDocument);
           this.loadProductNames(invoice);
 
-          if (this.shouldAutoPrint) {
-            this.shouldAutoPrint = false;
-            setTimeout(() => this.printDetails(), 150);
-          }
         },
         error: (error: HttpErrorResponse) => {
           this.invoice.set(null);
@@ -450,11 +429,4 @@ export class InvoiceDetailPageComponent implements OnInit, OnDestroy {
     return 'Não foi possível carregar a nota fiscal no momento. Tente novamente em instantes.';
   }
 
-  private enablePrintMode(): void {
-    document.body.classList.add('invoice-print-mode');
-  }
-
-  private disablePrintMode(): void {
-    document.body.classList.remove('invoice-print-mode');
-  }
 }
