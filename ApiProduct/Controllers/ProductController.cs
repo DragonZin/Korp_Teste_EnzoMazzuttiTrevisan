@@ -72,6 +72,30 @@ public class ProductsController : ControllerBase
         return Ok(product);
     }
 
+    [HttpPut("internal/{id:guid}/reserve")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<ProductResponse>> Reserve(Guid id, ProductQuantityRequest request)
+    {
+        var product = await _productService.ReserveAsync(id, request);
+        return Ok(product);
+    }
+
+    [HttpPut("internal/{id:guid}/release")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<ProductResponse>> Release(Guid id, ProductQuantityRequest request)
+    {
+        var product = await _productService.ReleaseAsync(id, request);
+        return Ok(product);
+    }
+
+    [HttpPut("internal/{id:guid}/commit")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<ProductResponse>> Commit(Guid id, ProductQuantityRequest request)
+    {
+        var product = await _productService.CommitAsync(id, request);
+        return Ok(product);
+    }
+    
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {

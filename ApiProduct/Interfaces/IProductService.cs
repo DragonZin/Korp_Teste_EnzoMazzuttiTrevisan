@@ -11,5 +11,8 @@ public interface IProductService
     Task<ProductResponse> CreateProductAsync(CreateProductRequest request);
     Task<ProductResponse> UpdateProductAsync(Guid id, UpdateProductRequest request);
     Task<ProductResponse> AdjustInventoryAsync(Guid id, AdjustProductInventoryRequest request);
+    Task<ProductResponse> ReserveAsync(Guid id, ProductQuantityRequest request);
+    Task<ProductResponse> ReleaseAsync(Guid id, ProductQuantityRequest request);
+    Task<ProductResponse> CommitAsync(Guid id, ProductQuantityRequest request);
     Task DeleteProductAsync(Guid id);
 }

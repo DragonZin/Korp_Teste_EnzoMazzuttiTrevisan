@@ -183,10 +183,7 @@ public class ProductService : IProductService
 
     public async Task<ProductResponse> AdjustInventoryAsync(Guid id, AdjustProductInventoryRequest request)
     {
-        if (request is null)
-        {
-            throw new ValidationException("O corpo da requisição é obrigatório.");
-        }
+        ValidateRequestBody(request);
 
         var product = await _context.Products
             .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
@@ -195,6 +192,60 @@ public class ProductService : IProductService
         product.Stock += request.StockDelta;
         product.ReservedStock += request.ReservedStockDelta;
         ValidateStock(product.Stock, product.ReservedStock);
+
+        await _context.SaveChangesAsync();
+
+        return ToResponse(product);
+    }
+
+    public async Task<ProductResponse> ReserveAsync(Guid id, ProductQuantityRequest request)
+    {
+        ValidateRequestBody(request);
+        ValidatePositiveQuantity(request.Quantity);
+
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            ?? throw new NotFoundException("Produto não encontrado.");
+
+        EnsureAvailableStock(product, request.Quantity);
+        product.ReservedStock += request.Quantity;
+
+        await _context.SaveChangesAsync();
+
+        return ToResponse(product);
+    }
+
+    public async Task<ProductResponse> ReleaseAsync(Guid id, ProductQuantityRequest request)
+    {
+        ValidateRequestBody(request);
+        ValidatePositiveQuantity(request.Quantity);
+
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            ?? throw new NotFoundException("Produto não encontrado.");
+
+        EnsureReservedStock(product, request.Quantity);
+        product.ReservedStock -= request.Quantity;
+
+        await _context.SaveChangesAsync();
+
+        return ToResponse(product);
+    }
+
+    public async Task<ProductResponse> CommitAsync(Guid id, ProductQuantityRequest request)
+    {
+        ValidateRequestBody(request);
+        ValidatePositiveQuantity(request.Quantity);
+
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted)
+            ?? throw new NotFoundException("Produto não encontrado.");
+
+        EnsureReservedStock(product, request.Quantity);
+        EnsureAvailableStock(product, request.Quantity);
+
+        product.Stock -= request.Quantity;
+        product.ReservedStock -= request.Quantity;
 
         await _context.SaveChangesAsync();
 
@@ -222,10 +273,7 @@ public class ProductService : IProductService
 
     private static void ValidateCreateRequest(CreateProductRequest request)
     {
-        if (request is null)
-        {
-            throw new ValidationException("O corpo da requisição é obrigatório.");
-        }
+        ValidateRequestBody(request);
 
         ValidateCode(request.Code);
         ValidateName(request.Name);
@@ -243,10 +291,7 @@ public class ProductService : IProductService
 
     private static void ValidateUpdateRequest(UpdateProductRequest request)
     {
-        if (request is null)
-        {
-            throw new ValidationException("O corpo da requisição é obrigatório.");
-        }
+        ValidateRequestBody(request);
 
         var hasAnyFieldToUpdate =
             request.Code is not null ||
@@ -321,6 +366,38 @@ public class ProductService : IProductService
         if (reservedStock > stock)
         {
             throw new ValidationException("Estoque reservado não pode ser maior que o estoque total.");
+        }
+    }
+    private static void ValidateRequestBody<TRequest>(TRequest request)
+        where TRequest : class
+    {
+        if (request is null)
+        {
+            throw new ValidationException("O corpo da requisição é obrigatório.");
+        }
+    }
+
+    private static void ValidatePositiveQuantity(int quantity)
+    {
+        if (quantity <= 0)
+        {
+            throw new ValidationException("Quantidade deve ser maior que zero.");
+        }
+    }
+
+    private static void EnsureAvailableStock(Product product, int quantity)
+    {
+        if (product.Stock - product.ReservedStock < quantity)
+        {
+            throw new ValidationException("Estoque disponível insuficiente.");
+        }
+    }
+
+    private static void EnsureReservedStock(Product product, int quantity)
+    {
+        if (product.ReservedStock < quantity)
+        {
+            throw new ValidationException("Estoque reservado insuficiente.");
         }
     }
 }
