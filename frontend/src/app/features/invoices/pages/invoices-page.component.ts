@@ -4,9 +4,11 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PagedResponse } from '../../../core/models/paged-response.model';
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent} from '../../../core/components/pagination/pagination-controls.component';
 import { InvoicesApiService } from '../data/invoices-api.service';
+import { CreateInvoiceRequest } from '../models/create-invoice-request.model';
 import { Invoice } from '../models/invoice.model';
 
 @Component({
@@ -21,9 +23,14 @@ import { Invoice } from '../models/invoice.model';
             <h2 class="h5 mb-1">Notas fiscais</h2>
             <p class="text-body-secondary mb-0">Listagem de notas.</p>
           </div>
-          <button type="button" class="btn btn-outline-secondary" (click)="loadInvoices(page())" [disabled]="isLoading()">
-            Recarregar
-          </button>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-primary" (click)="openCreateModal()" [disabled]="isLoading()">
+              Nova nota
+            </button>
+            <button type="button" class="btn btn-outline-secondary" (click)="loadInvoices(page())" [disabled]="isLoading()">
+              Recarregar
+            </button>
+          </div>
         </div>
 
         <div class="d-flex align-items-end gap-2 mb-3">
@@ -151,6 +158,71 @@ import { Invoice } from '../models/invoice.model';
         />
       </div>
     </section>
+    <div
+      *ngIf="isCreateModalOpen()"
+      class="invoice-modal-backdrop"
+      role="presentation"
+      (click)="closeCreateModal()"
+    >
+      <div
+        class="invoice-modal card border-0 shadow"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-invoice-title"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="card-body">
+          <h3 id="create-invoice-title" class="h5 mb-3">Nova nota fiscal</h3>
+
+          <div *ngIf="createApiError() as createError" class="alert alert-danger py-2" role="alert">
+            {{ createError }}
+          </div>
+
+          <form (ngSubmit)="submitCreateInvoice()" novalidate>
+            <div class="mb-3">
+              <label for="create-customer-name" class="form-label">Nome</label>
+              <input
+                id="create-customer-name"
+                type="text"
+                class="form-control"
+                [class.is-invalid]="!!createFieldErrors().customerName"
+                [value]="createCustomerName()"
+                (input)="onCreateCustomerNameInput($event)"
+                [disabled]="isCreatingInvoice()"
+              />
+              <div *ngIf="createFieldErrors().customerName as customerNameError" class="invalid-feedback d-block">
+                {{ customerNameError }}
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="create-customer-document" class="form-label">Documento</label>
+              <input
+                id="create-customer-document"
+                type="text"
+                class="form-control"
+                [class.is-invalid]="!!createFieldErrors().customerDocument"
+                [value]="createCustomerDocument()"
+                (input)="onCreateCustomerDocumentInput($event)"
+                [disabled]="isCreatingInvoice()"
+              />
+              <div *ngIf="createFieldErrors().customerDocument as customerDocumentError" class="invalid-feedback d-block">
+                {{ customerDocumentError }}
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+              <button type="button" class="btn btn-outline-secondary" (click)="closeCreateModal()" [disabled]="isCreatingInvoice()">
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-primary" [disabled]="isCreatingInvoice()">
+                {{ isCreatingInvoice() ? 'Criando...' : 'Criar nota' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   `,
   styleUrl: './invoices-page.component.scss',
 })
@@ -170,6 +242,12 @@ export class InvoicesPageComponent implements OnInit {
   readonly deletingInvoiceId = signal<string | null>(null);
   readonly closingInvoiceId = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+  readonly isCreateModalOpen = signal(false);
+  readonly isCreatingInvoice = signal(false);
+  readonly createApiError = signal<string | null>(null);
+  readonly createFieldErrors = signal<Partial<Record<keyof CreateInvoiceRequest, string>>>({});
+  readonly createCustomerName = signal('');
+  readonly createCustomerDocument = signal('');
 
   ngOnInit(): void {
     this.loadInvoices();
@@ -229,6 +307,70 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     this.loadInvoices(this.page() + 1);
+  }
+
+  openCreateModal(): void {
+    this.createApiError.set(null);
+    this.createFieldErrors.set({});
+    this.createCustomerName.set('');
+    this.createCustomerDocument.set('');
+    this.isCreateModalOpen.set(true);
+  }
+
+  closeCreateModal(): void {
+    if (this.isCreatingInvoice()) {
+      return;
+    }
+
+    this.isCreateModalOpen.set(false);
+    this.createApiError.set(null);
+    this.createFieldErrors.set({});
+  }
+
+  onCreateCustomerNameInput(event: Event): void {
+    this.createCustomerName.set((event.target as HTMLInputElement).value);
+  }
+
+  onCreateCustomerDocumentInput(event: Event): void {
+    this.createCustomerDocument.set((event.target as HTMLInputElement).value);
+  }
+
+  submitCreateInvoice(): void {
+    if (this.isCreatingInvoice()) {
+      return;
+    }
+
+    this.createApiError.set(null);
+    this.createFieldErrors.set({});
+
+    const payload: CreateInvoiceRequest = {
+      customerName: this.createCustomerName().trim(),
+      customerDocument: this.createCustomerDocument().trim(),
+    };
+
+    this.isCreatingInvoice.set(true);
+
+    this.invoicesApiService
+      .create(payload)
+      .pipe(finalize(() => this.isCreatingInvoice.set(false)))
+      .subscribe({
+        next: () => {
+          this.closeCreateModal();
+          this.successMessage.set('Nota fiscal criada com sucesso.');
+          this.loadInvoices(1);
+        },
+        error: (error: HttpErrorResponse) => {
+          const problemDetails = error.error as Partial<ProblemDetails> | null;
+          const mappedFieldErrors = this.mapCreateFieldErrors(problemDetails);
+
+          this.createFieldErrors.set(mappedFieldErrors);
+          this.createApiError.set(
+            Object.keys(mappedFieldErrors).length > 0
+              ? 'Existem campos inválidos. Revise os dados e tente novamente.'
+              : this.getFriendlyErrorMessage(error)
+          );
+        }
+      });
   }
 
   deleteInvoice(invoice: Invoice): void {
@@ -311,5 +453,28 @@ export class InvoicesPageComponent implements OnInit {
     }
 
     return 'Não foi possível carregar as notas fiscais no momento. Tente novamente em instantes.';
+  }
+
+  private mapCreateFieldErrors(
+    problemDetails: Partial<ProblemDetails> | null
+  ): Partial<Record<keyof CreateInvoiceRequest, string>> {
+    const fieldErrors: Partial<Record<keyof CreateInvoiceRequest, string>> = {};
+    const errors = problemDetails?.errors;
+
+    if (errors && typeof errors === 'object') {
+      for (const [key, value] of Object.entries(errors as Record<string, unknown>)) {
+        const normalized = key.toLowerCase();
+
+        if (normalized === 'customername') {
+          fieldErrors.customerName = Array.isArray(value) ? String(value[0]) : String(value);
+        }
+
+        if (normalized === 'customerdocument') {
+          fieldErrors.customerDocument = Array.isArray(value) ? String(value[0]) : String(value);
+        }
+      }
+    }
+
+    return fieldErrors;
   }
 }
