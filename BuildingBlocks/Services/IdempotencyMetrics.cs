@@ -14,6 +14,7 @@ public sealed class IdempotencyMetrics : IDisposable
     private readonly Counter<long> _cacheMisses;
 
     private long _inFlightRequests;
+    private long _tableSize;
     private double _avgRequestDurationMs;
 
     public IdempotencyMetrics()
@@ -26,6 +27,7 @@ public sealed class IdempotencyMetrics : IDisposable
 
         // Observable instruments are owned by Meter and do not implement IDisposable.
         _meter.CreateObservableGauge("idempotency.requests.in_flight", () => Volatile.Read(ref _inFlightRequests));
+        _meter.CreateObservableGauge("idempotency.table.size", () => Volatile.Read(ref _tableSize));
         _meter.CreateObservableGauge("idempotency.request_duration.avg_ms", () => Volatile.Read(ref _avgRequestDurationMs));
     }
 
@@ -35,12 +37,28 @@ public sealed class IdempotencyMetrics : IDisposable
 
     public void RegisterCacheMiss() => _cacheMisses.Add(1);
 
+    public void RecordRequest(bool wasReused)
+    {
+        RegisterRequest();
+
+        if (wasReused)
+        {
+            RegisterCacheHit();
+            return;
+        }
+
+        RegisterCacheMiss();
+    }
+
     public void IncrementInFlight() => Interlocked.Increment(ref _inFlightRequests);
 
     public void DecrementInFlight() => Interlocked.Decrement(ref _inFlightRequests);
 
     public void SetAverageRequestDuration(double durationMs)
         => Volatile.Write(ref _avgRequestDurationMs, durationMs);
+
+    public void UpdateTableSize(long tableSize)
+        => Volatile.Write(ref _tableSize, tableSize);
 
     public void Dispose()
     {
