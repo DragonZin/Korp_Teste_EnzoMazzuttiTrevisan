@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using BuildingBlocks.Services;
 
 namespace BuildingBlocks.Extensions;
 
@@ -53,6 +54,9 @@ public static class SharedApiExtensions
             };
         });
 
+        services.AddSingleton<IdempotencyMetrics>();
+        services.AddHostedService<IdempotencyCleanupHostedService>();
+        
         return services;
     }
 
