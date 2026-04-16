@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using ApiProduct.Data;
 using ApiProduct.Interfaces;
 using ApiProduct.Services;
@@ -18,6 +20,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IIdempotencyDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddSharedApiDefaults(options =>
 {
     builder.Configuration.GetSection(SharedApiOptions.SectionName).Bind(options);

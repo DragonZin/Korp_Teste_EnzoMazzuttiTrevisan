@@ -1,10 +1,9 @@
 using BuildingBlocks.Options;
-using BuildingBlocks.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BuildingBlocks.Extensions;
@@ -20,21 +19,19 @@ public static class SharedApiExtensions
             configureOptions?.Invoke(options);
         });
 
-        services.AddSingleton<IdempotencyMetrics>();
-        services.AddHostedService<IdempotencyCleanupHostedService>();
-
         services.Configure<ApiBehaviorOptions>(options =>
         {
             options.InvalidModelStateResponseFactory = context =>
             {
                 var errors = context.ModelState
-                    .Where(x => x.Value?.Errors.Count > 0)
+                    .Where(entry => entry.Value?.Errors.Count > 0)
                     .ToDictionary(
-                        keySelector: x => x.Key,
-                        elementSelector: x => x.Value!.Errors
+                        keySelector: entry => string.IsNullOrWhiteSpace(entry.Key) ? "body" : entry.Key,
+                        elementSelector: entry => entry.Value!.Errors
                             .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage)
                                 ? "Valor inválido."
                                 : error.ErrorMessage)
+                            .Distinct()
                             .ToArray());
 
                 var response = new
@@ -42,7 +39,7 @@ public static class SharedApiExtensions
                     type = "https://httpstatuses.com/400",
                     title = "Dados inválidos",
                     status = StatusCodes.Status400BadRequest,
-                    detail = "Um ou mais campos da requisição são inválidos.",
+                    detail = "Um ou mais erros de validação foram encontrados.",
                     instance = context.HttpContext.Request.Path.ToString(),
                     traceId = context.HttpContext.TraceIdentifier,
                     timestamp = DateTime.UtcNow,
