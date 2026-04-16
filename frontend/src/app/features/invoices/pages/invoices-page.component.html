@@ -119,6 +119,7 @@
     (closed)="closeCreateModal()"
 >
 <app-invoice-form
+    *ngIf="isCreateModalOpen()"
     [isSubmitting]="isCreatingInvoice()"
     [apiErrorMessage]="createApiError()"
     [apiFieldErrors]="createFieldErrors()"

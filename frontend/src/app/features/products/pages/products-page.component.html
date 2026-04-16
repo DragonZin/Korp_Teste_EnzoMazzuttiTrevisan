@@ -123,6 +123,7 @@
     (closed)="closeDrawer()"
 >
     <app-product-form
+        *ngIf="isDrawerOpen()"
         [product]="selectedProduct()"
         [isSubmitting]="isSaving()"
         [apiErrorMessage]="formApiErrorMessage()"
