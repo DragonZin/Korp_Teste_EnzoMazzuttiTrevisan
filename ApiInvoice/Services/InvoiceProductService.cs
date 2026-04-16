@@ -32,7 +32,7 @@ public class InvoiceProductService : IInvoiceProductService
 
     public async Task<InvoiceResponse> UpsertInvoiceItemsAsync(Guid invoiceId, ManageInvoiceItemsRequest request, string operationId)
     {
-        ValidateManageItemsRequest(request);
+
         ValidateOperationId(operationId);
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -318,37 +318,6 @@ public class InvoiceProductService : IInvoiceProductService
             ?? throw new ValidationException("Resposta inválida da API de produtos.");
 
         return products.ToDictionary(p => p.Id);
-    }
-
-    private static void ValidateManageItemsRequest(ManageInvoiceItemsRequest request)
-    {
-        if (request is null)
-        {
-            throw new ValidationException("O corpo da requisição é obrigatório.");
-        }
-
-        if (request.Products is null || request.Products.Count == 0)
-        {
-            throw new ValidationException("Informe ao menos um produto para gerenciar na nota fiscal.");
-        }
-
-        if (request.Products.GroupBy(p => p.ProductId).Any(g => g.Count() > 1))
-        {
-            throw new ValidationException("Não é permitido repetir o mesmo ProductId na mesma requisição.");
-        }
-
-        foreach (var item in request.Products)
-        {
-            if (item.ProductId == Guid.Empty)
-            {
-                throw new ValidationException("ProductId é obrigatório.");
-            }
-
-            if (item.Quantity < 0)
-            {
-                throw new ValidationException("Quantity não pode ser negativo.");
-            }
-        }
     }
 
     private static void ValidateOperationId(string operationId)

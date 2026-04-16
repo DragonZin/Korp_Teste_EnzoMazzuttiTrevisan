@@ -83,8 +83,6 @@ public class InvoiceService : IInvoiceService
 
     public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request)
     {
-        ValidateCreateRequest(request);
-
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
@@ -108,7 +106,6 @@ public class InvoiceService : IInvoiceService
             ?? throw new NotFoundException("Nota fiscal não encontrada.");
 
         EnsureInvoiceIsOpen(invoice);
-        ValidateUpdateRequest(request);
 
         if (request.CustomerName is not null)
         {
@@ -390,46 +387,6 @@ public class InvoiceService : IInvoiceService
         int reservedStockDelta)
         => $"invoice-delete:{invoiceId}:product:{productId}:stock:{stockDelta}:reserved:{reservedStockDelta}";
         
-    private static string BuildInventoryAdjustmentIdempotencyKey(Guid invoiceId, Guid productId, int stockDelta)
-        => $"invoice-close:{invoiceId}:product:{productId}:stock:{stockDelta}";
-
-    private static string BuildInventoryCompensationIdempotencyKey(Guid productId, int stockDelta, int index)
-        => $"invoice-close-compensation:product:{productId}:stock:{stockDelta}:idx:{index}";
-
-    private static void ValidateCreateRequest(CreateInvoiceRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.CustomerName) || request.CustomerName.Trim().Length > 255)
-        {
-            throw new ValidationException("CustomerName é obrigatório e deve ter no máximo 255 caracteres.");
-        }
-
-        if (string.IsNullOrWhiteSpace(request.CustomerDocument) || request.CustomerDocument.Trim().Length > 50)
-        {
-            throw new ValidationException("CustomerDocument é obrigatório e deve ter no máximo 50 caracteres.");
-        }
-    }
-
-    private static void ValidateUpdateRequest(UpdateInvoiceRequest request)
-    {
-        var hasName = request.CustomerName is not null;
-        var hasDocument = request.CustomerDocument is not null;
-
-        if (!hasName && !hasDocument)
-        {
-            throw new ValidationException("Informe CustomerName e/ou CustomerDocument para atualização.");
-        }
-
-        if (hasName && (string.IsNullOrWhiteSpace(request.CustomerName) || request.CustomerName.Trim().Length > 255))
-        {
-            throw new ValidationException("CustomerName deve ter no máximo 255 caracteres.");
-        }
-
-        if (hasDocument && (string.IsNullOrWhiteSpace(request.CustomerDocument) || request.CustomerDocument.Trim().Length > 50))
-        {
-            throw new ValidationException("CustomerDocument deve ter no máximo 50 caracteres.");
-        }
-    }
-
     private static void EnsureInvoiceIsOpen(Invoice invoice)
     {
         if (invoice.Status == InvoiceStatus.Closed)

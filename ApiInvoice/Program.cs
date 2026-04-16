@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using ApiInvoice.Data;
 using ApiInvoice.Interfaces;
 using ApiInvoice.Services;
@@ -52,6 +54,8 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IInvoiceProductService, InvoiceProductService>();
 
 builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddSharedApiDefaults(options =>
 {
