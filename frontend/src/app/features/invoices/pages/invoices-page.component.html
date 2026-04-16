@@ -70,7 +70,7 @@
       <button
         type="button"
         class="btn btn-outline-danger btn-sm"
-        (click)="deleteInvoice(invoice)"
+        (click)="requestDeleteInvoice(invoice)"
         [disabled]="isActionInProgress(invoice.id)"
       >
         {{ deletingInvoiceId() === invoice.id ? 'Excluindo...' : 'Excluir' }}
@@ -126,3 +126,16 @@
     (cancelled)="closeCreateModal()"
 />
 </app-base-modal>
+
+<app-confirmation-modal
+    [isOpen]="isDeleteConfirmModalOpen()"
+    title="Confirmar exclusão da nota"
+    subtitle="Esta ação remove a nota fiscal permanentemente."
+    message="Deseja realmente excluir a nota"
+    [emphasisText]="getDeleteInvoiceLabel()"
+    confirmLabel="Confirmar exclusão"
+    processingLabel="Excluindo..."
+    [isProcessing]="!!deletingInvoiceId()"
+    (cancelled)="closeDeleteModal()"
+    (confirmed)="confirmDeleteInvoice()"
+></app-confirmation-modal>

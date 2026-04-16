@@ -1,0 +1,21 @@
+<app-base-modal
+    [isOpen]="isOpen"
+    [title]="title"
+    [subtitle]="subtitle"
+    size="sm"
+    [closeOnBackdropClick]="!isProcessing"
+    (closed)="onCancel()"
+>
+    <p class="mb-3">
+        {{ message }}
+        <strong *ngIf="emphasisText">{{ emphasisText }}</strong>
+    </p>
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" (click)="onCancel()" [disabled]="isProcessing">
+            {{ cancelLabel }}
+        </button>
+        <button type="button" class="btn btn-danger" (click)="onConfirm()" [disabled]="isProcessing">
+            {{ isProcessing ? processingLabel : confirmLabel }}
+        </button>
+    </div>
+</app-base-modal>

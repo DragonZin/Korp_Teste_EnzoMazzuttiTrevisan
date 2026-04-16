@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
+import { ConfirmationModalComponent } from '../../../core/components/modal/confirmation-modal.component';
 import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PaginatedListStore } from '../../../core/state/paginated-list.store';
@@ -20,7 +21,7 @@ import { toInvoiceStatusClass, toInvoiceStatusLabel } from '../utils/invoice-sta
 @Component({
   selector: 'app-invoices-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent, BaseModalComponent, InvoicesTableComponent],
+  imports: [CommonModule, RouterLink, PaginationControlsComponent, InvoiceFormComponent, BaseModalComponent, InvoicesTableComponent, ConfirmationModalComponent],
   templateUrl: './invoices-page.component.html',
   styleUrl: './invoices-page.component.scss',
 })
@@ -55,6 +56,8 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
   readonly createFieldErrors = signal<Partial<Record<keyof CreateInvoiceRequest, string>>>({});
   readonly createCustomerName = signal('');
   readonly createCustomerDocument = signal('');
+  readonly invoicePendingDeletion = signal<InvoiceListItem | null>(null);
+  readonly isDeleteConfirmModalOpen = signal(false);
 
   ngOnInit(): void {
     this.loadInvoices();
@@ -135,9 +138,28 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteInvoice(invoice: InvoiceListItem): void {
-    const shouldDelete = window.confirm(`Deseja realmente excluir a nota NF-${invoice.number}?`);
-    if (!shouldDelete) {
+  requestDeleteInvoice(invoice: InvoiceListItem): void {
+    if (this.deletingInvoiceId()) {
+      return;
+    }
+
+    this.invoicePendingDeletion.set(invoice);
+    this.isDeleteConfirmModalOpen.set(true);
+  }
+
+  closeDeleteModal(): void {
+    if (this.deletingInvoiceId()) {
+      return;
+    }
+
+    this.isDeleteConfirmModalOpen.set(false);
+    this.invoicePendingDeletion.set(null);
+  }
+
+  confirmDeleteInvoice(): void {
+    const invoice = this.invoicePendingDeletion();
+
+    if (!invoice || this.deletingInvoiceId()) {
       return;
     }
 
@@ -147,7 +169,12 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
 
     this.invoicesApiService
       .delete(invoice.id)
-      .pipe(finalize(() => this.deletingInvoiceId.set(null)))
+      .pipe(
+        finalize(() => {
+          this.deletingInvoiceId.set(null);
+          this.closeDeleteModal();
+        })
+      )
       .subscribe({
         next: () => {
           this.successMessage.set(`Nota NF-${invoice.number} excluída com sucesso.`);
@@ -157,6 +184,11 @@ export class InvoicesPageComponent implements OnInit, OnDestroy {
           this.paginatedInvoices.error.set(`Não foi possível excluir a nota fiscal. ${this.getFriendlyErrorMessage(error)}`);
         }
       });
+  }
+
+  getDeleteInvoiceLabel(): string {
+    const invoiceNumber = this.invoicePendingDeletion()?.number;
+    return invoiceNumber ? `NF-${invoiceNumber}?` : '';
   }
 
   closeInvoice(invoice: InvoiceListItem): void {

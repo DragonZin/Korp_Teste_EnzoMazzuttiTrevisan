@@ -85,7 +85,7 @@
         <button
             type="button"
             class="btn btn-sm btn-outline-danger"
-            (click)="deleteProduct(product)"
+            (click)="requestDeleteProduct(product)"
             [disabled]="isDeletingId() === product.id"
         >
             {{ isDeletingId() === product.id ? 'Excluindo...' : 'Excluir' }}
@@ -130,4 +130,29 @@
         (submitted)="submitForm($event)"
         (cancelled)="closeDrawer()"
     />
+</app-base-modal>
+
+<app-confirmation-modal
+    [isOpen]="isDeleteConfirmModalOpen()"
+    title="Confirmar exclusão"
+    subtitle="Esta ação não pode ser desfeita."
+    message="Deseja excluir o produto"
+    [emphasisText]="getDeleteProductLabel()"
+    confirmLabel="Confirmar exclusão"
+    processingLabel="Excluindo..."
+    [isProcessing]="!!isDeletingId()"
+    (cancelled)="closeDeleteConfirmModal()"
+    (confirmed)="confirmDeleteProduct()"
+></app-confirmation-modal>
+
+<app-base-modal
+    [isOpen]="!!feedbackModalMessage()"
+    [title]="feedbackModalTitle()"
+    size="sm"
+    (closed)="closeFeedbackModal()"
+>
+    <p class="mb-3">{{ feedbackModalMessage() }}</p>
+    <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-primary" (click)="closeFeedbackModal()">Ok</button>
+    </div>
 </app-base-modal>

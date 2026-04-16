@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControlsComponent } from '../../../core/components/pagination/pagination-controls.component';
 import { BaseModalComponent } from '../../../core/components/modal/base-modal.component';
+import { ConfirmationModalComponent } from '../../../core/components/modal/confirmation-modal.component';
 import { mapHttpErrorMessage } from '../../../core/http/http-error-mapper';
 import { ProblemDetails } from '../../../core/models/problem-details.model';
 import { PaginatedListStore } from '../../../core/state/paginated-list.store';
@@ -21,7 +22,7 @@ type AvailabilityTone = 'low' | 'medium' | 'ok';
 @Component({
   selector: 'app-products-page',
   standalone: true,
-  imports: [CommonModule, ProductsTableComponent, ProductFormComponent, PaginationControlsComponent, BaseModalComponent],
+  imports: [CommonModule, ProductsTableComponent, ProductFormComponent, PaginationControlsComponent, BaseModalComponent, ConfirmationModalComponent],
   styleUrl: './products-page.component.scss',
   templateUrl: './products-page.component.html',
 })
@@ -49,6 +50,10 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   readonly isDrawerOpen = signal(false);
   readonly drawerMode = signal<ProductFormMode>('create');
   readonly selectedProduct = signal<Product | null>(null);
+  readonly productPendingDeletion = signal<Product | null>(null);
+  readonly isDeleteConfirmModalOpen = signal(false);
+  readonly feedbackModalTitle = signal('Atenção');
+  readonly feedbackModalMessage = signal<string | null>(null);
 
   readonly isInitialLoading = computed(() => this.isLoading() && this.products().length === 0);
   readonly totalStock = computed(() => this.products().reduce((acc, product) => acc + product.stock, 0));
@@ -172,10 +177,28 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteProduct(product: Product): void {
-    const confirmed = window.confirm(`Deseja excluir o produto "${product.name}"?`);
+  requestDeleteProduct(product: Product): void {
+    if (this.isDeletingId()) {
+      return;
+    }
 
-    if (!confirmed) {
+    this.productPendingDeletion.set(product);
+    this.isDeleteConfirmModalOpen.set(true);
+  }
+
+  closeDeleteConfirmModal(): void {
+    if (this.isDeletingId()) {
+      return;
+    }
+
+    this.isDeleteConfirmModalOpen.set(false);
+    this.productPendingDeletion.set(null);
+  }
+
+  confirmDeleteProduct(): void {
+    const product = this.productPendingDeletion();
+
+    if (!product || this.isDeletingId()) {
       return;
     }
 
@@ -183,7 +206,12 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
 
     this.productsApiService
       .delete(product.id)
-      .pipe(finalize(() => this.isDeletingId.set(null)))
+      .pipe(
+        finalize(() => {
+          this.isDeletingId.set(null);
+          this.closeDeleteConfirmModal();
+        })
+      )
       .subscribe({
         next: () => {
           const projectedTotalItems = Math.max(this.totalItems() - 1, 0);
@@ -193,9 +221,14 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
           this.paginatedProducts.load({ page: nextPage });
         },
         error: (error: HttpErrorResponse) => {
-          window.alert(this.getFriendlyErrorMessage(error));
+          this.openFeedbackModal('Erro ao excluir produto', this.getFriendlyErrorMessage(error));
         },
       });
+  }
+
+  getDeleteProductLabel(): string {
+    const productName = this.productPendingDeletion()?.name;
+    return productName ? `"${productName}"?` : '';
   }
 
   private getAvailabilityTone(product: Product): AvailabilityTone {
@@ -231,8 +264,17 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     this.formApiErrorMessage.set(genericMessage);
 
     if (Object.keys(mappedFieldErrors).length === 0) {
-      window.alert(genericMessage);
+      this.openFeedbackModal('Erro ao salvar produto', genericMessage);
     }
+  }
+
+  closeFeedbackModal(): void {
+    this.feedbackModalMessage.set(null);
+  }
+
+  private openFeedbackModal(title: string, message: string): void {
+    this.feedbackModalTitle.set(title);
+    this.feedbackModalMessage.set(message);
   }
 
   private mapFieldErrors(
